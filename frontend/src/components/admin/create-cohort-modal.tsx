@@ -1,0 +1,198 @@
+import { useState, useEffect } from "react";
+import { fetchApi, getErrorMessage } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, X } from "lucide-react";
+import type { Course, User } from "@/types/domain";
+
+export function CreateCohortModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClose: () => void, onSuccess: () => void }) {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
+  const [formData, setFormData] = useState({ courseId: "", teacherIds: [] as string[], name: "", maxStudents: 30, price: "0.00", startDate: "", endDate: "", discountPercentage: 0, discountEndsAt: "" });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (isOpen) {
+      setFetching(true);
+      Promise.all([
+      fetchApi("/academic/courses"),
+      fetchApi("/users?role=DOCENTE")
+      ])
+      .then(([coursesData, teachersData]) => {
+      setCourses(coursesData || []);
+      setTeachers(teachersData || []);
+      if (coursesData?.length > 0) setFormData(prev => ({ ...prev, courseId: coursesData[0].id }));
+      if (teachersData?.length > 0) setFormData(prev => ({ ...prev, teacherIds: [teachersData[0].id] }));
+      })
+      .catch(() => setError("Error al cargar dependencias"))
+      .finally(() => setFetching(false));
+      }
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    
+    try {
+      const dataToSubmit: Record<string, unknown> = {
+        ...formData,
+        maxStudents: Number(formData.maxStudents),
+        price: formData.price,
+        startDate: new Date(formData.startDate).toISOString(),
+        endDate: new Date(formData.endDate).toISOString(),
+      };
+      
+      if (formData.discountPercentage > 0) {
+        dataToSubmit.discountPercentage = Number(formData.discountPercentage);
+      }
+      if (formData.discountEndsAt) {
+        dataToSubmit.discountEndsAt = new Date(formData.discountEndsAt).toISOString();
+      }
+
+      const cohort = await fetchApi("/academic/cohorts", {
+        method: "POST",
+        body: JSON.stringify(dataToSubmit),
+      });
+
+      if (imageFile && cohort && cohort.id) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", imageFile);
+        await fetchApi(`/academic/cohorts/${cohort.id}/image`, {
+          method: "POST",
+          body: formDataUpload
+        });
+      }
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Error al crear cohorte"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <Card className="w-full max-w-md bg-background shadow-2xl border-border relative max-h-[90vh] overflow-y-auto animate-scale-in">
+        <button onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+          <X className="h-5 w-5" />
+        </button>
+        <CardHeader>
+          <CardTitle>Abrir Nueva Cohorte</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fetching ? (
+            <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+          ) : courses.length === 0 || teachers.length === 0 ? (
+            <div className="text-center text-sm text-destructive pb-4">
+              <p>Debes crear al menos un Curso y un Profesor primero.</p>
+              <Button className="mt-4" onClick={onClose}>Cerrar</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm">Curso</label>
+                <select 
+                  required
+                  value={formData.courseId} 
+                  onChange={(e) => setFormData({...formData, courseId: e.target.value})}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm">Profesores (Selecciona al menos 1)</label>
+                <div className="max-h-32 overflow-y-auto border border-input rounded-md p-2 bg-background/50 space-y-1">
+                  {teachers.map(t => (
+                    <label key={t.id} className="flex items-center space-x-2 text-sm">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300"
+                        checked={formData.teacherIds.includes(t.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, teacherIds: [...formData.teacherIds, t.id] });
+                          } else {
+                            setFormData({ ...formData, teacherIds: formData.teacherIds.filter(id => id !== t.id) });
+                          }
+                        }}
+                      />
+                      <span>{t.firstName} {t.lastName}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm">Nombre de Cohorte</label>
+                <Input required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Ej. Promoción 2026-I" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm">Cupos Máximos</label>
+                  <Input type="number" required min={1} value={formData.maxStudents} onChange={(e) => setFormData({...formData, maxStudents: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm">Precio (S/)</label>
+                  <Input type="number" required min={0} step="0.01" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm">Inicio</label>
+                  <Input type="date" required value={formData.startDate} onChange={(e) => setFormData({...formData, startDate: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm">Fin</label>
+                  <Input type="date" required value={formData.endDate} onChange={(e) => setFormData({...formData, endDate: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/50">
+                <div className="space-y-2">
+                  <label className="text-sm text-amber-500 font-bold">Dscto (%) FOMO</label>
+                  <Input type="number" min={0} max={100} value={formData.discountPercentage} onChange={(e) => setFormData({...formData, discountPercentage: Number(e.target.value)})} placeholder="Ej. 30" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-amber-500 font-bold">Fin de Dscto</label>
+                  <Input type="datetime-local" value={formData.discountEndsAt} onChange={(e) => setFormData({...formData, discountEndsAt: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-blue-500">Flyer de la Cohorte (Opcional)</label>
+                <Input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setImageFile(e.target.files[0]);
+                    }
+                  }} 
+                />
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              
+              <div className="pt-4 flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Crear
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
