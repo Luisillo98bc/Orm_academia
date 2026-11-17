@@ -987,9 +987,9 @@ export default function LandingPage() {
           className="landing-section border-t border-slate-200 bg-white px-5 py-20 dark:border-slate-800 dark:bg-slate-950 sm:px-8"
         >
           <div className="mx-auto max-w-7xl">
-            <div className="landing-advisor grid gap-10 rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-slate-950 shadow-xl sm:p-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+            <div className="landing-advisor grid gap-10 rounded-3xl border border-rose-200 bg-stone-50 p-6 text-slate-950 shadow-xl sm:p-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-900 dark:text-rose-300">
                   Orientación académica
                 </p>
                 <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
@@ -1001,7 +1001,7 @@ export default function LandingPage() {
 
                 <div className="mt-7 space-y-6">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    <p className="text-xs font-bold uppercase tracking-wider text-rose-900 dark:text-rose-300">
                       1. Nivel actual
                     </p>
                     <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
@@ -1019,8 +1019,8 @@ export default function LandingPage() {
                           }
                           className={`cursor-pointer rounded-xl border px-3.5 py-3 text-xs font-bold transition-all ${
                             quizLevel === lvl.id
-                              ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
-                              : "border-emerald-200 bg-white/80 text-slate-700 hover:border-emerald-400 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              ? "border-rose-950 bg-rose-950 text-white shadow-sm"
+                              : "border-rose-200 bg-white/85 text-slate-700 hover:border-rose-500 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                           }`}
                         >
                           {lvl.label}
@@ -1030,7 +1030,7 @@ export default function LandingPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    <p className="text-xs font-bold uppercase tracking-wider text-rose-900 dark:text-rose-300">
                       2. Área de formación
                     </p>
                     <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -1047,8 +1047,8 @@ export default function LandingPage() {
                           onClick={() => setQuizInterest(id as "DEV" | "DESIGN" | "DATA" | "TECH")}
                           className={`cursor-pointer flex flex-col items-center gap-2 rounded-xl border p-3.5 text-center text-xs font-bold transition-all ${
                             quizInterest === id
-                              ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
-                              : "border-emerald-200 bg-white/80 text-slate-700 hover:border-emerald-400 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              ? "border-rose-950 bg-rose-950 text-white shadow-sm"
+                              : "border-rose-200 bg-white/85 text-slate-700 hover:border-rose-500 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                           }`}
                         >
                           <InterestIcon className="h-4 w-4" />
@@ -1061,14 +1061,14 @@ export default function LandingPage() {
               </div>
 
               {recommendedCohort && (
-                <div key={recommendedCohort.id} className="landing-recommendation rounded-2xl border border-emerald-200 bg-white p-6 text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-white">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                <div key={recommendedCohort.id} className="landing-recommendation rounded-2xl border border-rose-200 bg-white p-6 text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-900/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-rose-900 dark:bg-rose-400/15 dark:text-rose-300">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Edición sugerida
                   </span>
                   <h3 className="mt-3 text-xl font-extrabold text-slate-950 dark:text-white">
                     {recommendedCohort.course?.name || recommendedCohort.name}
                   </h3>
-                  <p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                  <p className="mt-1 text-xs font-bold text-rose-900 dark:text-rose-300">
                     {recommendedCohort.name} · {levelLabel(recommendedCohort.course?.level)}
                   </p>
                   {recommendedCohort.course?.description && (
@@ -1078,7 +1078,7 @@ export default function LandingPage() {
                   )}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
                     <span className="inline-flex items-center gap-1.5 font-semibold">
-                      <CalendarDays className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Inicio:{" "}
+                      <CalendarDays className="h-3.5 w-3.5 text-rose-800 dark:text-rose-300" /> Inicio:{" "}
                       {formatDate(recommendedCohort.startDate)}
                     </span>
                     <span className="font-mono text-base font-black text-slate-950 dark:text-white">
@@ -1088,7 +1088,7 @@ export default function LandingPage() {
                   <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
                     <Button
                       asChild
-                      className="flex-1 rounded-xl bg-slate-950 font-bold text-white hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600"
+                      className="flex-1 rounded-xl bg-slate-950 font-bold text-white hover:bg-rose-950 dark:bg-rose-900 dark:hover:bg-rose-800"
                     >
                       <Link href={`/cohorts/${recommendedCohort.id}`}>
                         Ver programa <ArrowRight className="ml-1.5 h-4 w-4" />

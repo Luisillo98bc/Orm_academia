@@ -115,25 +115,25 @@ export function LandingAnnouncements() {
     >
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-rose-800 dark:text-rose-300">
             Novedades y ofertas
           </p>
           <h2 className="text-2xl font-extrabold tracking-[-0.04em] text-slate-950 dark:text-white sm:text-3xl">
             Promociones y próximas convocatorias
           </h2>
         </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-900 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-950 shadow-sm dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+          <span className="h-2 w-2 rounded-full bg-rose-800" />
           {announcements.length} {announcements.length === 1 ? "oferta vigente" : "ofertas vigentes"}
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-[#ecfdf5] via-[#f0fdfa] to-[#ccfbf1] p-5 shadow-[0_28px_64px_-24px_rgba(4,120,87,0.18)] sm:p-8 lg:p-10">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-300 via-teal-400 to-emerald-600" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-rose-200 bg-gradient-to-br from-[#fffaf7] via-[#faf7f5] to-[#f5e7e5] p-5 shadow-[0_28px_64px_-24px_rgba(76,29,49,0.2)] sm:p-8 lg:p-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-slate-800 via-rose-900 to-rose-700" />
 
         <div className="relative z-10 pt-1">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full bg-rose-950 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white shadow-sm">
               <Megaphone className="h-3.5 w-3.5" />
               <span>Oferta destacada</span>
             </div>
@@ -142,7 +142,7 @@ export function LandingAnnouncements() {
               <div className="flex items-center gap-2" aria-label="Controles de anuncios">
                 <button
                   onClick={() => setIsPaused((paused) => !paused)}
-                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-emerald-900/20 bg-white/60 text-stone-900 transition hover:border-emerald-700/40 hover:bg-white"
+                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-slate-900/15 bg-white/70 text-slate-900 transition hover:border-rose-800/40 hover:bg-white"
                   aria-label={isPaused ? "Reanudar anuncios" : "Pausar anuncios"}
                   aria-pressed={isPaused}
                 >
@@ -150,7 +150,7 @@ export function LandingAnnouncements() {
                 </button>
                 <button
                   onClick={prev}
-                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-emerald-900/20 bg-white/60 text-stone-900 transition hover:border-emerald-700/40 hover:bg-white"
+                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-slate-900/15 bg-white/70 text-slate-900 transition hover:border-rose-800/40 hover:bg-white"
                   aria-label="Anuncio anterior"
                 >
                   <ChevronLeft className="h-5 w-5" />
@@ -160,7 +160,7 @@ export function LandingAnnouncements() {
                 </span>
                 <button
                   onClick={next}
-                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-emerald-900/20 bg-white/60 text-stone-900 transition hover:border-emerald-700/40 hover:bg-white"
+                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-slate-900/15 bg-white/70 text-slate-900 transition hover:border-rose-800/40 hover:bg-white"
                   aria-label="Siguiente anuncio"
                 >
                   <ChevronRight className="h-5 w-5" />
@@ -184,7 +184,7 @@ export function LandingAnnouncements() {
               className="grid items-center gap-8 md:grid-cols-12 lg:gap-12"
             >
               <div className="space-y-5 md:col-span-7">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-800">Beneficio por tiempo limitado</p>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose-900">Beneficio por tiempo limitado</p>
                 <h3 className="max-w-2xl text-3xl font-extrabold leading-[1.08] tracking-[-0.04em] text-stone-900 sm:text-4xl lg:text-[2.75rem]">
                   {slide.title}
                 </h3>
@@ -194,7 +194,7 @@ export function LandingAnnouncements() {
 
                 {slide.ctaText && slide.ctaUrl && (
                   <div className="pt-2">
-                    <Button asChild className="h-12 rounded-full bg-emerald-700 px-6 text-sm font-extrabold text-white shadow-lg transition hover:bg-emerald-800">
+                    <Button asChild className="h-12 rounded-full bg-rose-950 px-6 text-sm font-extrabold text-white shadow-lg transition hover:bg-rose-900">
                       <Link href={targetUrl}>
                         <span>{slide.ctaText}</span>
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -206,7 +206,7 @@ export function LandingAnnouncements() {
 
               <div className="flex items-center justify-center md:col-span-5">
                 {slide.imageUrl ? (
-                  <div className="group relative aspect-[16/10] w-full max-w-md overflow-hidden rounded-[1.35rem] border-2 border-emerald-300/60 bg-slate-950/20 shadow-[0_24px_50px_-20px_rgba(15,23,42,0.55)]">
+                  <div className="group relative aspect-[16/10] w-full max-w-md overflow-hidden rounded-[1.35rem] border-2 border-rose-300/60 bg-slate-950/20 shadow-[0_24px_50px_-20px_rgba(15,23,42,0.55)]">
                     <Image
                       unoptimized
                       fill
@@ -217,12 +217,12 @@ export function LandingAnnouncements() {
                     />
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-slate-950/25 via-transparent to-white/10" />
                     <div className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-md">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-300" />
                       NTS KIDS
                     </div>
                   </div>
                   ) : (
-                  <div className="flex aspect-[16/10] w-full max-w-md items-center justify-center rounded-[1.35rem] border border-emerald-300 bg-white/40 text-emerald-800">
+                  <div className="flex aspect-[16/10] w-full max-w-md items-center justify-center rounded-[1.35rem] border border-rose-200 bg-white/55 text-rose-900">
                     <Megaphone className="h-16 w-16" />
                   </div>
                 )}

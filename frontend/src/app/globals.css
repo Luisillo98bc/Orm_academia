@@ -778,15 +778,15 @@
 .public-footer .max-w-7xl { max-width: 90rem; }
 
 .landing-page .landing-advisor {
-  background: radial-gradient(ellipse at top right, #a7f3d0 0%, transparent 62%), #f0fdf9;
-  box-shadow: 0 24px 64px -36px rgb(4 120 87 / .25);
+  background: radial-gradient(ellipse at top right, #f3d9dc 0%, transparent 60%), #faf8f5;
+  box-shadow: 0 24px 64px -36px rgb(76 29 49 / .24);
 }
 .landing-advisor button { transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
 .landing-advisor button:hover { transform: translateY(-2px); }
-.landing-advisor button[aria-pressed="true"] { box-shadow: 0 4px 14px rgb(4 120 87 / .2); }
+.landing-advisor button[aria-pressed="true"] { box-shadow: 0 4px 14px rgb(76 29 49 / .2); }
 .dark .landing-page .landing-advisor {
-  background: radial-gradient(ellipse at top right, #246653, transparent 65%), #233e36;
-  border-color: #4d8b77;
+  background: radial-gradient(ellipse at top right, #5b2b3b, transparent 65%), #292327;
+  border-color: #75505c;
   color: #f8fafc;
 }
 .dark .landing-advisor h2 { color: #f8fafc; }
