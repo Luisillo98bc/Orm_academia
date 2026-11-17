@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { LandingEffects } from "@/components/landing-effects";
+import { CountUp } from "@/components/count-up";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -433,6 +435,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page min-h-screen overflow-x-hidden bg-slate-50/50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+      <LandingEffects />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
@@ -643,7 +646,7 @@ export default function LandingPage() {
                     <StatIcon className="h-5 w-5" />
                   </span>
                   <p className="text-3xl font-black tracking-tight text-white sm:text-4xl tabular-nums">
-                    +{value.toLocaleString("es-PE")}
+                    <CountUp value={value} />
                   </p>
                   <p className="mt-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-300">
                     {label}
@@ -984,21 +987,21 @@ export default function LandingPage() {
           className="landing-section border-t border-slate-200 bg-white px-5 py-20 dark:border-slate-800 dark:bg-slate-950 sm:px-8"
         >
           <div className="mx-auto max-w-7xl">
-            <div className="grid gap-10 rounded-3xl border border-slate-800 bg-[#090f1e] p-6 text-white shadow-xl sm:p-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+            <div className="landing-advisor grid gap-10 rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-slate-950 shadow-xl sm:p-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-400">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
                   Orientación académica
                 </p>
-                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
                   Encuentra tu edición según tu nivel e interés
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
                   Selecciona tu nivel de partida y el área que buscas para ver qué grupo próximo se ajusta mejor.
                 </p>
 
                 <div className="mt-7 space-y-6">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-blue-300">
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                       1. Nivel actual
                     </p>
                     <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
@@ -1009,14 +1012,15 @@ export default function LandingPage() {
                       ].map((lvl) => (
                         <button
                           key={lvl.id}
+                          aria-pressed={quizLevel === lvl.id}
                           type="button"
                           onClick={() =>
                             setQuizLevel(lvl.id as "BEGINNER" | "INTERMEDIATE" | "ADVANCED")
                           }
                           className={`cursor-pointer rounded-xl border px-3.5 py-3 text-xs font-bold transition-all ${
                             quizLevel === lvl.id
-                              ? "border-amber-400 bg-amber-400 text-slate-950 shadow-sm"
-                              : "border-white/15 bg-white/[0.05] text-slate-200 hover:border-white/30 hover:bg-white/10"
+                              ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
+                              : "border-emerald-200 bg-white/80 text-slate-700 hover:border-emerald-400 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                           }`}
                         >
                           {lvl.label}
@@ -1026,7 +1030,7 @@ export default function LandingPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-blue-300">
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                       2. Área de formación
                     </p>
                     <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -1038,12 +1042,13 @@ export default function LandingPage() {
                       ].map(({ id, label, icon: InterestIcon }) => (
                         <button
                           key={id}
+                          aria-pressed={quizInterest === id}
                           type="button"
                           onClick={() => setQuizInterest(id as "DEV" | "DESIGN" | "DATA" | "TECH")}
                           className={`cursor-pointer flex flex-col items-center gap-2 rounded-xl border p-3.5 text-center text-xs font-bold transition-all ${
                             quizInterest === id
-                              ? "border-blue-500 bg-blue-600 text-white shadow-sm"
-                              : "border-white/15 bg-white/[0.05] text-slate-200 hover:border-white/30 hover:bg-white/10"
+                              ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
+                              : "border-emerald-200 bg-white/80 text-slate-700 hover:border-emerald-400 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                           }`}
                         >
                           <InterestIcon className="h-4 w-4" />
@@ -1056,14 +1061,14 @@ export default function LandingPage() {
               </div>
 
               {recommendedCohort && (
-                <div className="rounded-2xl border border-white/15 bg-white p-6 text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-white">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <div key={recommendedCohort.id} className="landing-recommendation rounded-2xl border border-emerald-200 bg-white p-6 text-slate-950 shadow-2xl dark:bg-slate-900 dark:text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Edición sugerida
                   </span>
                   <h3 className="mt-3 text-xl font-extrabold text-slate-950 dark:text-white">
                     {recommendedCohort.course?.name || recommendedCohort.name}
                   </h3>
-                  <p className="mt-1 text-xs font-bold text-blue-700 dark:text-blue-400">
+                  <p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                     {recommendedCohort.name} · {levelLabel(recommendedCohort.course?.level)}
                   </p>
                   {recommendedCohort.course?.description && (
@@ -1073,7 +1078,7 @@ export default function LandingPage() {
                   )}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
                     <span className="inline-flex items-center gap-1.5 font-semibold">
-                      <CalendarDays className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Inicio:{" "}
+                      <CalendarDays className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Inicio:{" "}
                       {formatDate(recommendedCohort.startDate)}
                     </span>
                     <span className="font-mono text-base font-black text-slate-950 dark:text-white">
@@ -1083,7 +1088,7 @@ export default function LandingPage() {
                   <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
                     <Button
                       asChild
-                      className="flex-1 rounded-xl bg-slate-950 font-bold text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
+                      className="flex-1 rounded-xl bg-slate-950 font-bold text-white hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600"
                     >
                       <Link href={`/cohorts/${recommendedCohort.id}`}>
                         Ver programa <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -1488,7 +1493,7 @@ export default function LandingPage() {
         id="faq"
         className="landing-section landing-faq scroll-mt-20 border-t border-slate-200 bg-slate-100/80 px-5 py-20 dark:border-slate-800 dark:bg-slate-900/40 sm:px-8 lg:py-24"
       >
-        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.78fr_1.22fr]">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.78fr_1.22fr]">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-400">
               Resuelve tus dudas
@@ -1575,7 +1580,7 @@ export default function LandingPage() {
         id="contacto"
         className="landing-section landing-contact relative overflow-hidden bg-[#090f1e] px-5 py-20 text-white sm:px-8 lg:py-24"
       >
-        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div className="space-y-5">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-amber-300">
               Admisión y Orientación
@@ -1587,7 +1592,7 @@ export default function LandingPage() {
               Déjanos tus datos para enviarte el temario detallado, fechas de inicio y facilidades de pago mensual.
             </p>
 
-            <div className="space-y-3 pt-2 text-sm text-slate-200">
+            <div className="space-y-3 pt-2 text-sm text-slate-600 dark:text-slate-200">
               <div className="flex items-center gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20 text-blue-300">
                   <CheckCircle2 className="h-4 w-4" />

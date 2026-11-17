@@ -762,7 +762,68 @@
 }
 
 .landing-page .max-w-6xl {
-  max-width: min(80rem, 100%);
+  max-width: min(90rem, 100%);
+}
+
+/* Match the hero's content edges, including sections with outer gutters. */
+.landing-page .landing-section > .max-w-7xl,
+.landing-page .landing-stats > .max-w-7xl {
+  max-width: 87.5rem;
+}
+@media (min-width: 640px) {
+  .landing-page .landing-section > .max-w-7xl,
+  .landing-page .landing-stats > .max-w-7xl { max-width: 86rem; }
+}
+.public-navbar-inner,
+.public-footer .max-w-7xl { max-width: 90rem; }
+
+.landing-page .landing-advisor {
+  background: radial-gradient(ellipse at top right, #a7f3d0 0%, transparent 62%), #f0fdf9;
+  box-shadow: 0 24px 64px -36px rgb(4 120 87 / .25);
+}
+.landing-advisor button { transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
+.landing-advisor button:hover { transform: translateY(-2px); }
+.landing-advisor button[aria-pressed="true"] { box-shadow: 0 4px 14px rgb(4 120 87 / .2); }
+.dark .landing-page .landing-advisor {
+  background: radial-gradient(ellipse at top right, #246653, transparent 65%), #233e36;
+  border-color: #4d8b77;
+  color: #f8fafc;
+}
+.dark .landing-advisor h2 { color: #f8fafc; }
+.landing-page article {
+  transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+}
+.landing-page :is(a, button) svg { transition: transform 200ms ease; }
+.landing-page :is(a, button):hover > svg:last-child { transform: translateX(3px); }
+.landing-hero-copy > *, .landing-recommendation { animation: landing-arrive 650ms cubic-bezier(.22,1,.36,1) both; }
+.landing-hero-copy > :nth-child(2) { animation-delay: 100ms; }
+.landing-hero-copy > :nth-child(3) { animation-delay: 200ms; }
+.landing-hero-copy > :nth-child(n+4) { animation-delay: 300ms; }
+.landing-faq button { transition: background-color 200ms ease, color 200ms ease; }
+.landing-faq button:hover { background-color: rgb(5 150 105 / .07); }
+@keyframes landing-arrive {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .landing-page article:hover { transform: translateY(-6px); box-shadow: 0 22px 42px -28px rgb(4 120 87 / .3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-copy > *, .landing-recommendation { animation: none; }
+  .landing-page article, .landing-page :is(a, button) svg { transition: none; }
+  .landing-page :is(a, button):hover > svg:last-child { transform: none; }
+}
+.landing-page .landing-contact { background: linear-gradient(135deg, #fffaf0, #eef8f3); color: #0f172a; }
+.landing-contact .text-slate-300 { color: #475569; }
+.landing-contact .text-amber-300 { color: #92400e; }
+.landing-contact .text-blue-300 { color: #047857; }
+.dark .landing-page .landing-contact { background: #252f2e; color: #f8fafc; }
+.dark .landing-contact .text-slate-300 { color: #cbd5e1; }
+.dark .landing-contact .text-amber-300 { color: #fcd34d; }
+.dark .landing-contact .text-blue-300 { color: #6ee7b7; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-advisor button { transition: none; }
+  .landing-advisor button:hover { transform: none; }
 }
 
 .programs-page .max-w-7xl {

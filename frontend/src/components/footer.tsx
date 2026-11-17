@@ -50,7 +50,7 @@ export function Footer() {
   ].filter((social) => Boolean(social.href));
 
   return (
-    <footer className="border-t border-border bg-white text-slate-600 dark:bg-background dark:text-slate-300">
+    <footer className="public-footer border-t border-border bg-white text-slate-600 dark:bg-background dark:text-slate-300">
       {/* Franja superior de sellos de garantía institucional */}
       <div className="border-b border-border bg-slate-50/80 dark:bg-white/[0.03]">
         <div className="mx-auto grid max-w-7xl gap-4 px-5 py-6 sm:grid-cols-3 sm:px-8">

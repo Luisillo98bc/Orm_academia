@@ -64,7 +64,7 @@ export function Navbar() {
             : "border-b border-border/40 bg-background/75 backdrop-blur-md"
       }`}
     >
-      <div className="public-navbar-inner mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <div className="public-navbar-inner mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-5 sm:px-8">
         {/* Brand Logo */}
         <Link href="/" className="group flex min-w-0 items-center gap-2.5">
           {logoUrl && failedLogoUrl !== logoUrl ? (
