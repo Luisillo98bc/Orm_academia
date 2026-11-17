@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service';
 
 @Injectable()
@@ -7,6 +8,7 @@ export class PrismaWorkerRepository {
 
   async findAll() {
     return this.prisma.worker.findMany({
+      where: { deletedAt: null },
       include: {
         user: {
           select: {
@@ -15,6 +17,7 @@ export class PrismaWorkerRepository {
             lastName: true,
             email: true,
             isActive: true,
+            deletedAt: true,
           },
         },
       },
@@ -24,7 +27,7 @@ export class PrismaWorkerRepository {
 
   async findById(id: string) {
     return this.prisma.worker.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: {
         user: {
           select: {
@@ -33,6 +36,7 @@ export class PrismaWorkerRepository {
             lastName: true,
             email: true,
             isActive: true,
+            deletedAt: true,
           },
         },
         contracts: { orderBy: { startDate: 'desc' } },
@@ -41,7 +45,14 @@ export class PrismaWorkerRepository {
     });
   }
 
-  async createWithUser(userData: any, workerData: any, roleId: string) {
+  async createWithUser(
+    userData: Pick<
+      Prisma.UserCreateInput,
+      'email' | 'firstName' | 'lastName' | 'passwordHash'
+    >,
+    workerData: Omit<Prisma.WorkerUncheckedCreateInput, 'userId'>,
+    roleId: string,
+  ) {
     // Execute inside a transaction to ensure both user and worker are created
     return this.prisma.$transaction(async (tx) => {
       // 1. Create user
@@ -62,24 +73,49 @@ export class PrismaWorkerRepository {
           ...workerData,
           userId: user.id,
         },
-        include: { user: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              isActive: true,
+              deletedAt: true,
+            },
+          },
+        },
       });
 
       return worker;
     });
   }
 
-  async createForExistingUser(userId: string, workerData: any) {
+  async createForExistingUser(
+    userId: string,
+    workerData: Omit<Prisma.WorkerUncheckedCreateInput, 'userId'>,
+  ) {
     return this.prisma.worker.create({
-      data: {
-        ...workerData,
-        userId,
+      data: { ...workerData, userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            isActive: true,
+            deletedAt: true,
+          },
+        },
       },
-      include: { user: true },
     });
   }
 
-  async createContract(workerId: string, contractData: any) {
+  async createContract(
+    workerId: string,
+    contractData: Omit<Prisma.ContractUncheckedCreateInput, 'workerId'>,
+  ) {
     return this.prisma.contract.create({
       data: {
         ...contractData,

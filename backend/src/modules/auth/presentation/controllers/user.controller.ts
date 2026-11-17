@@ -28,11 +28,18 @@ import { CurrentUser } from '../../infrastructure/strategies/current-user.decora
 import { ListUsersUseCase } from '../../application/use-cases/list-users.use-case';
 import { AdminCreateUserUseCase } from '../../application/use-cases/admin-create-user.use-case';
 import { AdminCreateUserDto } from '../../application/dtos/admin-create-user.dto';
+import { AdminUpdateUserDto } from '../../application/dtos/admin-update-user.dto';
+import { UserListQueryDto } from '../../application/dtos/user-list-query.dto';
 import { Inject } from '@nestjs/common';
 import type { IUserRepository } from '../../domain/repositories/user.repository.interface';
 import { USER_REPOSITORY } from '../../domain/repositories/user.repository.interface';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from '../../../../shared/infrastructure/multer/multer.config';
+import { UpdateProfileDto } from '../../application/dtos/update-profile.dto';
+import * as bcrypt from 'bcrypt';
+import { StorageService } from '../../../../shared/infrastructure/storage/storage.service';
+import type { UserEntity } from '../../domain/entities/user.entity';
+import type { AuthenticatedUser } from '../../infrastructure/strategies/authenticated-user.type';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -44,22 +51,41 @@ export class UserController {
     private readonly adminCreateUserUseCase: AdminCreateUserUseCase,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: IUserRepository,
+    private readonly storageService: StorageService,
   ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Obtener mi perfil' })
-  async getProfile(@CurrentUser() user: any) {
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
     const fullUser = await this.userRepository.findById(user.id);
     if (!fullUser) throw new UnauthorizedException('Usuario no encontrado');
 
+    return this.toProfileResponse(fullUser);
+  }
+
+  private toProfileResponse(fullUser: UserEntity) {
     return {
       id: fullUser.id,
       email: fullUser.email,
       firstName: fullUser.firstName,
       lastName: fullUser.lastName,
       profilePicture: fullUser.profilePicture,
-      roles: fullUser.roles.map((r) => r.name),
+      dni: fullUser.dni,
+      phone: fullUser.phone,
+      address: fullUser.address,
+      district: fullUser.district,
+      province: fullUser.province,
+      department: fullUser.department,
+      roles: fullUser.roles.map((r: { name: string }) => r.name),
       permissions: fullUser.flatPermissions,
+      profileComplete: Boolean(
+        fullUser.dni &&
+        fullUser.phone &&
+        fullUser.address &&
+        fullUser.district &&
+        fullUser.province &&
+        fullUser.department,
+      ),
     };
   }
 
@@ -67,8 +93,15 @@ export class UserController {
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Listar usuarios (Filtro por rol opcional)' })
   @ApiQuery({ name: 'role', required: false })
-  getUsers(@Query('role') role?: string) {
-    return this.listUsersUseCase.execute(role);
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getUsers(@Query() query: UserListQueryDto) {
+    return this.listUsersUseCase.execute(
+      query.role,
+      query.page,
+      query.limit,
+      ...(query.search?.trim() ? [query.search.trim()] : []),
+    );
   }
 
   @Post()
@@ -80,38 +113,39 @@ export class UserController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Actualizar mi perfil' })
-  async updateProfile(@CurrentUser() user: any, @Body() body: any) {
-    const updateData: any = {};
-    if (body.firstName) updateData.firstName = body.firstName;
-    if (body.lastName) updateData.lastName = body.lastName;
+  async updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: UpdateProfileDto,
+  ) {
+    const { password, ...profileData } = body;
 
     // Si envían contraseña, se hashea
-    if (body.password) {
-      const bcrypt = require('bcrypt');
-      updateData.passwordHash = await bcrypt.hash(body.password, 10);
-    }
+    const updateData = {
+      ...profileData,
+      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+    };
 
     const updated = await this.userRepository.update(user.id, updateData);
-    return {
-      id: updated.id,
-      email: updated.email,
-      firstName: updated.firstName,
-      lastName: updated.lastName,
-      profilePicture: updated.profilePicture,
-    };
+    return this.toProfileResponse(updated);
   }
 
   @Post('me/avatar')
   @ApiOperation({ summary: 'Subir foto de perfil' })
   @UseInterceptors(FileInterceptor('file', multerConfig))
-  async uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: any) {
+  async uploadAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
     if (!file) {
       throw new BadRequestException(
         'Ningún archivo fue subido o el formato es incorrecto',
       );
     }
 
-    const profilePictureUrl = `/uploads/${file.filename}`;
+    const profilePictureUrl = await this.storageService.uploadFile(
+      file,
+      'avatars',
+    );
     const updated = await this.userRepository.update(user.id, {
       profilePicture: profilePictureUrl,
     });
@@ -125,8 +159,8 @@ export class UserController {
   @Patch(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Actualizar un usuario (Solo Admin)' })
-  async updateUser(@Param('id') id: string, @Body() body: any) {
-    const updateData: any = {};
+  async updateUser(@Param('id') id: string, @Body() body: AdminUpdateUserDto) {
+    const updateData: AdminUpdateUserDto = {};
     if (body.firstName !== undefined) updateData.firstName = body.firstName;
     if (body.lastName !== undefined) updateData.lastName = body.lastName;
     if (body.email !== undefined) updateData.email = body.email;

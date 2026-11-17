@@ -7,10 +7,18 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Namespace, Socket } from 'socket.io';
+import {
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { DirectMessagesService } from './direct-messages.service';
+import { AuthRevocationService } from '../auth/infrastructure/auth-revocation.service';
 import { JwtService } from '@nestjs/jwt';
+import { RefreshSessionService } from '../auth/infrastructure/refresh-session.service';
+import { emitToActiveSessions } from './session-events';
 import {
   ACCESS_COOKIE_NAME,
   readCookie,
@@ -18,6 +26,8 @@ import {
 
 interface SocketData {
   userId?: string;
+  expiresAt?: number;
+  sid?: string;
 }
 
 type AuthenticatedSocket = Socket<
@@ -40,19 +50,47 @@ function allowConfiguredOrigin(
   cors: { origin: allowConfiguredOrigin, credentials: true },
   namespace: '/chat',
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
+{
   @WebSocketServer()
-  server: Server;
+  server: Namespace;
 
   private readonly logger = new Logger(ChatGateway.name);
 
   // Map userId -> Set of socket IDs (un usuario puede tener varias pestañas)
   private userSockets = new Map<string, Set<string>>();
+  private expiryTimers = new Map<string, NodeJS.Timeout>();
+  private unsubscribeRevocation?: () => void;
 
   constructor(
     private readonly directMessagesService: DirectMessagesService,
     private readonly jwtService: JwtService,
+    private readonly sessions: RefreshSessionService,
+    @Optional() private readonly authRevocations?: AuthRevocationService,
   ) {}
+
+  onModuleInit() {
+    this.unsubscribeRevocation = this.authRevocations?.subscribe((userId) =>
+      this.disconnectUser(userId),
+    );
+  }
+
+  onModuleDestroy() {
+    this.unsubscribeRevocation?.();
+    for (const timer of this.expiryTimers.values()) clearTimeout(timer);
+    this.expiryTimers.clear();
+  }
+
+  private disconnectUser(userId: string) {
+    for (const socketId of this.userSockets.get(userId) ?? []) {
+      this.server.sockets.get(socketId)?.disconnect(true);
+    }
+  }
 
   // ── CONEXIÓN ──
   async handleConnection(client: AuthenticatedSocket) {
@@ -63,6 +101,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
       client.disconnect();
       return;
+    }
+
+    if (client.data.expiresAt) {
+      this.expiryTimers.set(
+        client.id,
+        setTimeout(
+          () => client.disconnect(true),
+          Math.max(0, client.data.expiresAt - Date.now()),
+        ),
+      );
     }
 
     // Registrar el socket para el usuario
@@ -78,6 +126,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
+    const expiryTimer = this.expiryTimers.get(client.id);
+    if (expiryTimer) clearTimeout(expiryTimer);
+    this.expiryTimers.delete(client.id);
     const userId = client.data.userId;
     if (userId && this.userSockets.has(userId)) {
       this.userSockets.get(userId)!.delete(client.id);
@@ -94,8 +145,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: { receiverId: string; content: string },
   ) {
-    const senderId = client.data.userId;
-    if (!senderId || !payload.receiverId || !payload.content?.trim()) {
+    if (
+      !payload ||
+      typeof payload.receiverId !== 'string' ||
+      !payload.receiverId ||
+      typeof payload.content !== 'string' ||
+      !payload.content.trim()
+    ) {
+      return;
+    }
+    const senderId = await this.authenticate(client);
+    if (!senderId) {
+      client.disconnect(true);
       return;
     }
 
@@ -107,10 +168,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
 
     // Emitir al remitente (todas sus pestañas)
-    this.server.to(`user:${senderId}`).emit('newMessage', message);
+    await emitToActiveSessions(
+      this.server,
+      `user:${senderId}`,
+      'newMessage',
+      message,
+      this.sessions,
+    );
 
     // Emitir al destinatario (todas sus pestañas)
-    this.server.to(`user:${payload.receiverId}`).emit('newMessage', message);
+    await emitToActiveSessions(
+      this.server,
+      `user:${payload.receiverId}`,
+      'newMessage',
+      message,
+      this.sessions,
+    );
 
     return message;
   }
@@ -121,8 +194,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: { otherUserId: string },
   ) {
-    const userId = client.data.userId;
-    if (!userId || !payload.otherUserId) return;
+    if (
+      !payload ||
+      typeof payload.otherUserId !== 'string' ||
+      !payload.otherUserId
+    )
+      return;
+    const userId = await this.authenticate(client);
+    if (!userId) {
+      client.disconnect(true);
+      return;
+    }
 
     // Marcar como leídos en la base de datos (llamando a getConversation que ya lo hace)
     await this.directMessagesService.getConversation(
@@ -131,24 +213,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
 
     // Notificar al otro usuario que sus mensajes fueron leídos
-    this.server.to(`user:${payload.otherUserId}`).emit('messagesRead', {
-      readBy: userId,
-    });
+    await emitToActiveSessions(
+      this.server,
+      `user:${payload.otherUserId}`,
+      'messagesRead',
+      {
+        readBy: userId,
+      },
+      this.sessions,
+    );
   }
 
   private async authenticate(
     client: AuthenticatedSocket,
   ): Promise<string | null> {
-    const token = readCookie(
-      client.handshake.headers.cookie,
-      ACCESS_COOKIE_NAME,
-    );
+    const authToken =
+      typeof client.handshake.auth?.token === 'string' &&
+      client.handshake.auth.token.trim()
+        ? client.handshake.auth.token.trim()
+        : null;
+    const headerAuth = client.handshake.headers.authorization;
+    const bearerToken =
+      typeof headerAuth === 'string' &&
+      headerAuth.toLowerCase().startsWith('bearer ')
+        ? headerAuth.slice(7).trim()
+        : null;
+    const token =
+      authToken ||
+      bearerToken ||
+      readCookie(client.handshake.headers.cookie, ACCESS_COOKIE_NAME);
     if (!token) return null;
 
     try {
-      const payload = await this.jwtService.verifyAsync<{ sub: string }>(token);
-      if (!payload.sub) return null;
+      const payload = await this.jwtService.verifyAsync<{
+        sub: string;
+        sid?: string;
+        exp?: number;
+      }>(token);
+      if (!payload.sub || !payload.exp) return null;
+      await this.sessions.validateAccessClaims(payload);
       client.data.userId = payload.sub;
+      client.data.sid = payload.sid;
+      if (payload.exp) client.data.expiresAt = payload.exp * 1000;
       return payload.sub;
     } catch {
       return null;

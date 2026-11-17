@@ -1,0 +1,134 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    ports: !reset []
+    logging: *default-logging
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es obligatorio}
+
+  minio:
+    # MinIO Community dejó de publicar imágenes precompiladas. Compose compila
+    # la imagen oficial desde el commit fijado si aún no existe localmente.
+    image: ${MINIO_IMAGE:-academia_virtual_minio:community-7aac2a2c}
+    build:
+      context: ./deploy/minio
+      dockerfile: Dockerfile
+      args:
+        MINIO_COMMIT: ${MINIO_COMMIT:-7aac2a2c5b7c882e68c1ce017d8256be2feea27f}
+    container_name: academia_virtual_minio
+    restart: always
+    logging: *default-logging
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER es obligatorio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD es obligatorio}
+    volumes:
+      - academia_virtual_minio_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:9000/minio/health/live || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-academia_virtual_minio-mc:community-77f82e18}
+    build:
+      context: ./deploy/minio-mc
+      dockerfile: Dockerfile
+      args:
+        MC_COMMIT: ${MC_COMMIT:-77f82e18b5401a65958f1619df6ebb994634bd88}
+    container_name: academia_virtual_minio_init
+    restart: "no"
+    logging: *default-logging
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER es obligatorio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD es obligatorio}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY es obligatorio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY es obligatorio}
+    volumes:
+      - ./deploy/minio-app-policy.json:/config/minio-app-policy.json:ro
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        for bucket in avatars courses cohorts materials vouchers deliverables; do
+          mc mb --ignore-existing "local/$${bucket}"
+        done
+        mc admin policy create local academia-app-policy /config/minio-app-policy.json || true
+        mc admin user add local "$${MINIO_ACCESS_KEY}" "$${MINIO_SECRET_KEY}" || true
+        mc admin policy attach local academia-app-policy --user "$${MINIO_ACCESS_KEY}"
+
+  clamav:
+    image: ${CLAMAV_IMAGE:-clamav/clamav:1.4.3}
+    container_name: academia_virtual_clamav
+    restart: always
+    logging: *default-logging
+    volumes:
+      - academia_virtual_clamav_data:/var/lib/clamav
+
+  backend:
+    ports: !reset []
+    logging: *default-logging
+    # Las migraciones se ejecutan como un paso explícito del despliegue.
+    command: ['node', 'dist/src/main']
+    env_file:
+      - ${PRODUCTION_ENV_FILE:-./deploy/.env.production}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL es obligatorio}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL}}
+      STORAGE_PROVIDER: minio
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY es obligatorio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY es obligatorio}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_FORCE_PATH_STYLE: ${MINIO_FORCE_PATH_STYLE:-true}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL es obligatorio}
+      CLAMAV_REQUIRED: ${CLAMAV_REQUIRED:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_started
+
+  frontend:
+    ports: !reset []
+    logging: *default-logging
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL es obligatorio}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL es obligatorio}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL es obligatorio}
+        NEXT_PUBLIC_CULQI_PUBLIC_KEY: ${NEXT_PUBLIC_CULQI_PUBLIC_KEY:-pk_test_configure_me}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:?NEXT_PUBLIC_GOOGLE_CLIENT_ID es obligatorio}
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.8.1}
+    container_name: academia_virtual_cloudflared
+    restart: always
+    logging: *default-logging
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN es obligatorio}
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+volumes:
+  academia_virtual_minio_data:
+    name: academia_virtual_minio_data
+  academia_virtual_clamav_data:
+    name: academia_virtual_clamav_data

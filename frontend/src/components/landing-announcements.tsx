@@ -2,7 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { API_URL } from "@/lib/api";
-import { ChevronLeft, ChevronRight, Sparkles, ArrowRight, Megaphone } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Megaphone,
+  Pause,
+  Play,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,21 +29,16 @@ export function LandingAnnouncements() {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_URL}/communication/announcements/public`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setAnnouncements(data || []))
-      .catch(() => setAnnouncements([]));
+      .catch(() => setAnnouncements([]))
+      .finally(() => setIsLoading(false));
   }, []);
-
-  const goTo = useCallback(
-    (index: number) => {
-      setDirection(index > current ? 1 : -1);
-      setCurrent(index);
-    },
-    [current]
-  );
 
   const next = useCallback(() => {
     if (announcements.length <= 1) return;
@@ -54,10 +56,19 @@ export function LandingAnnouncements() {
 
   // Auto-play
   useEffect(() => {
-    if (isPaused || announcements.length <= 1) return;
+    if (isPaused || isInteracting || announcements.length <= 1) return;
     const timer = setInterval(next, 6000);
     return () => clearInterval(timer);
-  }, [isPaused, next, announcements.length]);
+  }, [isInteracting, isPaused, next, announcements.length]);
+
+  if (isLoading) {
+    return (
+      <section className="landing-announcements-section mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-16" aria-label="Cargando anuncios" aria-busy="true">
+        <div className="mb-7 h-14 max-w-xl animate-pulse rounded-xl bg-slate-200/70 dark:bg-slate-800/70" />
+        <div className="min-h-[360px] animate-pulse rounded-[2rem] border border-slate-200 bg-slate-100/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/60" />
+      </section>
+    );
+  }
 
   if (announcements.length === 0) return null;
 
@@ -94,40 +105,62 @@ export function LandingAnnouncements() {
 
   return (
     <section
-      className="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      aria-label="Anuncios destacados"
+      aria-roledescription="carrusel"
+      className="landing-announcements-section mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-16"
+      onMouseEnter={() => setIsInteracting(true)}
+      onMouseLeave={() => setIsInteracting(false)}
+      onFocus={() => setIsInteracting(true)}
+      onBlur={() => setIsInteracting(false)}
     >
-      <div className="relative rounded-[2.5rem] bg-slate-950 border border-slate-800/80 shadow-2xl overflow-hidden p-6 sm:p-10 lg:p-12">
-        {/* Background ambient lighting */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-primary/20 via-indigo-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+      <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400">
+            Novedades y ofertas
+          </p>
+          <h2 className="text-2xl font-extrabold tracking-[-0.04em] text-slate-950 dark:text-white sm:text-3xl">
+            Promociones y próximas convocatorias
+          </h2>
+        </div>
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200">
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          {announcements.length} {announcements.length === 1 ? "oferta vigente" : "ofertas vigentes"}
+        </div>
+      </div>
 
-        <div className="relative z-10">
-          {/* Top Bar with Badge & Controls */}
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Anuncio Destacado</span>
+      <div className="relative overflow-hidden rounded-[2rem] border border-blue-400/40 bg-gradient-to-br from-[#172554] via-[#1d4ed8] to-[#2563eb] p-5 shadow-[0_28px_64px_-24px_rgba(29,78,216,0.65)] sm:p-8 lg:p-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-amber-300 via-amber-400 to-rose-400" />
+
+        <div className="relative z-10 pt-1">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-950 shadow-sm">
+              <Megaphone className="h-3.5 w-3.5" />
+              <span>Oferta destacada</span>
             </div>
 
-            {/* Slide Navigation Controls */}
             {announcements.length > 1 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" aria-label="Controles de anuncios">
+                <button
+                  onClick={() => setIsPaused((paused) => !paused)}
+                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25"
+                  aria-label={isPaused ? "Reanudar anuncios" : "Pausar anuncios"}
+                  aria-pressed={isPaused}
+                >
+                  {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                </button>
                 <button
                   onClick={prev}
-                  className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white flex items-center justify-center transition-all"
+                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25"
                   aria-label="Anuncio anterior"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <span className="text-xs font-medium text-slate-400 px-1">
-                  {current + 1} / {announcements.length}
+                <span className="min-w-12 text-center text-xs font-bold tabular-nums text-white" aria-live="polite">
+                  {String(current + 1).padStart(2, "0")} / {String(announcements.length).padStart(2, "0")}
                 </span>
                 <button
                   onClick={next}
-                  className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white flex items-center justify-center transition-all"
+                  className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25"
                   aria-label="Siguiente anuncio"
                 >
                   <ChevronRight className="h-5 w-5" />
@@ -136,7 +169,6 @@ export function LandingAnnouncements() {
             )}
           </div>
 
-          {/* Slide Content */}
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={slide.id}
@@ -146,44 +178,51 @@ export function LandingAnnouncements() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center"
+              role="group"
+              aria-roledescription="anuncio"
+              aria-label={`${current + 1} de ${announcements.length}`}
+              className="grid items-center gap-8 md:grid-cols-12 lg:gap-12"
             >
-              {/* Text Side */}
-              <div className="md:col-span-7 space-y-4">
-                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
+              <div className="space-y-5 md:col-span-7">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-300">Beneficio por tiempo limitado</p>
+                <h3 className="max-w-2xl text-3xl font-extrabold leading-[1.08] tracking-[-0.04em] text-white sm:text-4xl lg:text-[2.75rem]">
                   {slide.title}
                 </h3>
-                <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl font-normal">
+                <p className="max-w-xl text-sm leading-7 text-blue-50 sm:text-base">
                   {slide.content}
                 </p>
 
                 {slide.ctaText && slide.ctaUrl && (
                   <div className="pt-2">
-                    <Link href={targetUrl}>
-                      <Button className="rounded-full px-7 h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition-all hover:scale-105 gap-2 group">
+                    <Button asChild className="h-12 rounded-full bg-amber-400 px-6 text-sm font-extrabold text-slate-950 shadow-lg transition hover:bg-amber-300">
+                      <Link href={targetUrl}>
                         <span>{slide.ctaText}</span>
-                        <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </Link>
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
                   </div>
                 )}
               </div>
 
-              {/* Image Side */}
-              <div className="md:col-span-5 flex justify-center items-center">
+              <div className="flex items-center justify-center md:col-span-5">
                 {slide.imageUrl ? (
-                  <div className="relative w-full max-w-sm rounded-2xl border border-white/10 overflow-hidden shadow-2xl bg-black/40 group">
+                  <div className="group relative aspect-[16/10] w-full max-w-md overflow-hidden rounded-[1.35rem] border-2 border-amber-300/60 bg-slate-950/20 shadow-[0_24px_50px_-20px_rgba(15,23,42,0.55)]">
                     <Image
                       unoptimized
-                      width={800}
-                      height={440}
+                      fill
+                      sizes="(min-width: 1024px) 36vw, (min-width: 768px) 42vw, 100vw"
                       src={slide.imageUrl}
                       alt={slide.title}
-                      className="w-full h-auto max-h-[220px] object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
                     />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-slate-950/25 via-transparent to-white/10" />
+                    <div className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-md">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      NTS KIDS
+                    </div>
                   </div>
-                ) : (
-                  <div className="w-full max-w-sm h-[180px] rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary/40">
+                  ) : (
+                  <div className="flex aspect-[16/10] w-full max-w-md items-center justify-center rounded-[1.35rem] border border-white/20 bg-white/10 text-amber-300">
                     <Megaphone className="h-16 w-16" />
                   </div>
                 )}
@@ -191,23 +230,6 @@ export function LandingAnnouncements() {
             </motion.div>
           </AnimatePresence>
 
-          {/* Dots Indicator */}
-          {announcements.length > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-white/10">
-              {announcements.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => goTo(i)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    i === current
-                      ? "w-8 bg-emerald-400"
-                      : "w-2 bg-white/20 hover:bg-white/40"
-                  }`}
-                  aria-label={`Ir al slide ${i + 1}`}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </section>

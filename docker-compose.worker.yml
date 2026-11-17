@@ -1,0 +1,12 @@
+services:
+  # En esta arquitectura el backend HTTP no ejecuta jobs. Solo el worker los ejecuta.
+  backend:
+    environment:
+      ENABLE_SCHEDULED_JOBS: 'true'
+      SCHEDULED_JOBS_MODE: disabled
+
+  worker:
+    profiles: ['worker']
+    environment:
+      ENABLE_SCHEDULED_JOBS: 'true'
+      SCHEDULED_JOBS_MODE: worker

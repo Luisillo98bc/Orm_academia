@@ -3,7 +3,6 @@ import * as bcrypt from 'bcrypt';
 import type { IUserRepository } from '../../domain/repositories/user.repository.interface';
 import { USER_REPOSITORY } from '../../domain/repositories/user.repository.interface';
 import { AdminCreateUserDto } from '../dtos/admin-create-user.dto';
-import { UserEntity } from '../../domain/entities/user.entity';
 
 @Injectable()
 export class AdminCreateUserUseCase {
@@ -22,7 +21,7 @@ export class AdminCreateUserUseCase {
     const hashedPassword = await bcrypt.hash(dto.password, salt);
 
     const roleName =
-      dto.roles && dto.roles.length > 0 ? dto.roles[0] : 'PROFESOR';
+      dto.roles && dto.roles.length > 0 ? dto.roles[0] : 'ESTUDIANTE';
 
     const savedUser = await this.userRepository.create(
       {

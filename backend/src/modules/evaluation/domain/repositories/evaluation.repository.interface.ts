@@ -27,6 +27,23 @@ export interface IEvaluationRepository {
       'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'isOpen' | 'isOverdue'
     >,
   ): Promise<EvaluationEntity>;
+
+  update(
+    id: string,
+    data: Partial<
+      Pick<
+        EvaluationEntity,
+        | 'title'
+        | 'description'
+        | 'weight'
+        | 'maxScore'
+        | 'dueDate'
+        | 'isPublished'
+      >
+    >,
+  ): Promise<EvaluationEntity>;
+
+  softDelete(id: string): Promise<void>;
 }
 
 export const EVALUATION_REPOSITORY = Symbol('IEvaluationRepository');

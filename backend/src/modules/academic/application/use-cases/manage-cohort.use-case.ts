@@ -19,12 +19,32 @@ export class ManageCohortUseCase {
     return this.cohortRepository.findAll();
   }
 
+  async getPublicOperationalCohorts(
+    now: Date = new Date(),
+  ): Promise<CohortEntity[]> {
+    if (this.cohortRepository.findPublicOperational) {
+      return this.cohortRepository.findPublicOperational(now);
+    }
+    return this.cohortRepository.findAll();
+  }
+
+  async getCohortsForTeacher(teacherId: string): Promise<CohortEntity[]> {
+    return this.cohortRepository.findByTeacherId(teacherId);
+  }
+
+  async getCohortById(id: string): Promise<CohortEntity | null> {
+    return this.cohortRepository.findById(id);
+  }
+
   async updateCohort(
     id: string,
     data: {
       name?: string;
+      modality?: string;
+      schedule?: string;
       teacherIds?: string[];
       price?: string;
+      installments?: number;
       maxStudents?: number;
       startDate?: Date;
       endDate?: Date;

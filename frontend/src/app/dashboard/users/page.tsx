@@ -8,26 +8,42 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, PlusCircle, Mail, UserCircle, Pencil, Trash2, X, CheckCircle2 } from "lucide-react";
 import { CreateUserModal } from "@/components/admin/create-user-modal";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { useConfirm } from "@/components/confirm-provider";
+import { TablePagination } from "@/components/dashboard/table-pagination";
+import { SummaryStrip } from "@/components/dashboard/workspace-tabs";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { UserRecord } from "@/components/admin/user-record";
 
 export default function UsersPage() {
   const { user } = useAuth();
+  const confirmAction = useConfirm();
   const [usersList, setUsersList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterRole, setFilterRole] = useState("");
+  const [search, setSearch] = useState("");
+  const [record, setRecord] = useState<User | null>(null);
   const [editing, setEditing] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<{ firstName: string, lastName: string, email: string, roles: string[] }>({ firstName: "", lastName: "", email: "", roles: [] });
   const [editLoading, setEditLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 20;
 
   const loadUsers = async () => {
     setLoading(true);
     setError("");
     try {
-      const endpoint = filterRole ? `/users?role=${filterRole}` : "/users";
-      const data = await fetchApi(endpoint);
-      setUsersList(data || []);
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (filterRole) params.set("role", filterRole);
+      if (search.trim()) params.set("search", search.trim());
+      const response = await fetchApi(`/users?${params.toString()}`);
+      setUsersList(response?.data || []);
+      setTotal(response?.pagination?.total || 0);
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Error al cargar los usuarios"));
     } finally {
@@ -40,9 +56,9 @@ export default function UsersPage() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       loadUsersEffect();
-    }, 0);
+    }, 250);
     return () => window.clearTimeout(timeoutId);
-  }, [filterRole]);
+  }, [filterRole, page, search]);
 
   const handleEdit = (u: User) => {
     setEditing(u);
@@ -73,7 +89,7 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción es irreversible.")) return;
+    if (!(await confirmAction({ title: "Eliminar usuario", description: "El usuario perderá el acceso y será enviado a la papelera para revisión administrativa.", confirmLabel: "Eliminar usuario" }))) return;
     try {
       await fetchApi(`/users/${id}`, { method: "DELETE" });
       setSuccess("Usuario eliminado correctamente");
@@ -96,32 +112,26 @@ export default function UsersPage() {
     }
   };
 
-  if (loading && usersList.length === 0) {
-    return <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-
   if (!user || user.roles[0] !== "ADMIN") {
     return <div className="p-8 text-center text-red-500 font-bold">Acceso Denegado</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Directorio de Usuarios</h2>
-          <p className="text-muted-foreground mt-1">Gestión completa de docentes, estudiantes y administradores.</p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
+      <PageHeader eyebrow="Acceso y roles" title="Directorio de usuarios" description="Gestiona docentes, estudiantes y administradores desde un directorio centralizado." actions={<Button onClick={() => setIsModalOpen(true)} className="gap-2">
           <PlusCircle className="h-4 w-4" /> Registrar Usuario
-        </Button>
-      </div>
+        </Button>} />
 
-      <div className="flex gap-2">
+      <SummaryStrip items={[{ label: "Usuarios encontrados", value: total, detail: filterRole ? `Rol ${filterRole}` : "Todos los roles" }, { label: "Activos en esta página", value: usersList.filter(u => u.isActive).length }, { label: "Inactivos en esta página", value: usersList.filter(u => !u.isActive).length }]} />
+      <div className="workspace-toolbar">
+        <label className="min-w-48 flex-1">Buscar en el directorio<Input value={search} maxLength={150} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Nombre, correo, DNI o teléfono" /></label>
+      <div className="flex flex-wrap gap-2" aria-label="Filtrar usuarios por rol">
         {["", "ADMIN", "DOCENTE", "ESTUDIANTE", "RRHH"].map((r) => (
-          <Button key={r} variant={filterRole === r ? "default" : "outline"} size="sm" onClick={() => setFilterRole(r)} className="rounded-full">
-            {r === "" ? "Todos" : r}
+          <Button key={r} variant={filterRole === r ? "default" : "outline"} size="sm" onClick={() => { setFilterRole(r); setPage(1); }} className="rounded-full">
+            {({ "": "Todos", ADMIN: "Administradores", DOCENTE: "Docentes", ESTUDIANTE: "Estudiantes", RRHH: "Recursos humanos" } as Record<string, string>)[r]}
           </Button>
         ))}
+      </div>
       </div>
 
       {error && (
@@ -140,7 +150,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border/50 overflow-hidden glass">
+      <div className="bg-card rounded-xl border border-border/50 overflow-x-auto">
         {loading ? (
            <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : (
@@ -167,7 +177,7 @@ export default function UsersPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <UserCircle className="h-8 w-8 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{u.firstName} {u.lastName}</span>
+                        <button type="button" onClick={() => setRecord(u)} className="text-left font-semibold text-primary hover:underline" aria-label={`Ver ficha de ${u.firstName} ${u.lastName}`}>{u.firstName} {u.lastName}<span className="mt-0.5 block text-xs font-normal text-muted-foreground">Ver ficha</span></button>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -210,11 +220,12 @@ export default function UsersPage() {
             </tbody>
           </table>
         )}
+        <TablePagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
       </div>
 
       {/* Modal de Edición Inline */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <Modal title="Editar usuario" onClose={() => setEditing(null)}>
           <div className="bg-card rounded-xl border border-border/50 p-6 w-full max-w-md glass relative">
             <button onClick={() => setEditing(null)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
             <h3 className="text-xl font-bold mb-4">Editar Usuario</h3>
@@ -258,8 +269,9 @@ export default function UsersPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
+      {record && <UserRecord user={record} onClose={() => setRecord(null)} />}
 
       <CreateUserModal 
         isOpen={isModalOpen} 

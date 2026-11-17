@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service';
 import { IEvaluationRepository } from '../../domain/repositories/evaluation.repository.interface';
 import { EvaluationEntity } from '../../domain/entities/evaluation.entity';
@@ -21,6 +22,34 @@ export class PrismaEvaluationRepository implements IEvaluationRepository {
 
     if (!evaluation) return null;
     return this.toDomainEntity(evaluation);
+  }
+
+  async update(
+    id: string,
+    data: Partial<
+      Pick<
+        EvaluationEntity,
+        | 'title'
+        | 'description'
+        | 'weight'
+        | 'maxScore'
+        | 'dueDate'
+        | 'isPublished'
+      >
+    >,
+  ): Promise<EvaluationEntity> {
+    const evaluation = await this.prisma.evaluation.update({
+      where: { id },
+      data,
+    });
+    return this.toDomainEntity(evaluation);
+  }
+
+  async softDelete(id: string): Promise<void> {
+    await this.prisma.evaluation.update({
+      where: { id },
+      data: { deletedAt: new Date(), isPublished: false },
+    });
   }
 
   async findByCohortId(cohortId: string): Promise<EvaluationEntity[]> {
@@ -55,7 +84,9 @@ export class PrismaEvaluationRepository implements IEvaluationRepository {
     return this.toDomainEntity(evaluation);
   }
 
-  private toDomainEntity(raw: any): EvaluationEntity {
+  private toDomainEntity(
+    raw: Prisma.EvaluationGetPayload<Prisma.EvaluationDefaultArgs>,
+  ): EvaluationEntity {
     return new EvaluationEntity({
       id: raw.id,
       cohortId: raw.cohortId,

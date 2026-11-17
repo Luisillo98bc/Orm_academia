@@ -1,4 +1,7 @@
 // ============================================================================
+
+import { CourseEntity } from './course.entity';
+
 // Cohort Entity — Capa de Dominio
 // ============================================================================
 
@@ -11,8 +14,11 @@ export class CohortEntity {
   readonly courseId: string;
   readonly teacherIds: string[];
   readonly name: string;
+  readonly modality: string;
+  readonly schedule: string | null;
   readonly googleMeetLink: string | null;
   readonly price: string;
+  readonly installments: number;
   readonly maxStudents: number;
   readonly startDate: Date;
   readonly endDate: Date;
@@ -28,10 +34,17 @@ export class CohortEntity {
   readonly courseName?: string;
 
   /** Objeto completo del curso (cargado desde la relación) */
-  readonly course?: any;
+  readonly course?: CourseEntity;
 
   /** Profesores asignados (cargados desde la relación). */
-  readonly teachers?: { id: string; firstName: string; lastName: string }[];
+  readonly teachers?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    profilePicture?: string | null;
+    department?: string | null;
+    position?: string | null;
+  }[];
 
   /** Número actual de estudiantes matriculados. */
   readonly enrollmentCount?: number;
@@ -41,8 +54,11 @@ export class CohortEntity {
     courseId: string;
     teacherIds: string[];
     name: string;
+    modality?: string;
+    schedule?: string | null;
     googleMeetLink?: string | null;
     price?: string;
+    installments?: number;
     maxStudents: number;
     startDate: Date;
     endDate: Date;
@@ -54,16 +70,26 @@ export class CohortEntity {
     updatedAt: Date;
     deletedAt?: Date | null;
     courseName?: string;
-    course?: any;
-    teachers?: { id: string; firstName: string; lastName: string }[];
+    course?: CourseEntity;
+    teachers?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profilePicture?: string | null;
+      department?: string | null;
+      position?: string | null;
+    }[];
     enrollmentCount?: number;
   }) {
     this.id = props.id;
     this.courseId = props.courseId;
     this.teacherIds = props.teacherIds;
     this.name = props.name;
+    this.modality = props.modality ?? 'ONLINE';
+    this.schedule = props.schedule ?? null;
     this.googleMeetLink = props.googleMeetLink ?? null;
     this.price = props.price ?? '0.00';
+    this.installments = Math.max(1, props.installments ?? 1);
     this.maxStudents = props.maxStudents;
     this.startDate = props.startDate;
     this.endDate = props.endDate;

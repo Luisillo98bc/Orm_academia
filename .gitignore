@@ -5,10 +5,19 @@
 # ── Dependencias ──
 node_modules/
 
+# ── Datos generados/locales ──
+backups/
+backend/uploads/
+backend/private-uploads/
+frontend/.auth/
+*.dump
+
 # ── Variables de entorno ──
 .env
 .env.local
 .env.*.local
+deploy/.env.production
+deploy/.env.tunnel
 
 # ── Build outputs ──
 dist/
@@ -34,3 +43,17 @@ npm-debug.log*
 
 # ── Coverage ──
 coverage/
+
+# ── Pruebas E2E y artefactos locales ──
+frontend/test-results/
+frontend/playwright-report/
+frontend/test-results-audit/
+/test-results/
+backend/dummy.jpg
+backend/tmp/
+
+# ── TypeScript incremental metadata ──
+*.tsbuildinfo
+
+# Disposable isolated validation and dependency metadata
+**/.validation-production/

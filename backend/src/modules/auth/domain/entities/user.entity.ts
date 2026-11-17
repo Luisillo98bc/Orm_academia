@@ -29,13 +29,22 @@ export interface UserRole {
 export class UserEntity {
   readonly id: string;
   readonly email: string;
+  readonly googleSubject: string | null;
   readonly passwordHash: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly profilePicture: string | null;
+  readonly dni: string | null;
+  readonly phone: string | null;
+  readonly address: string | null;
+  readonly district: string | null;
+  readonly province: string | null;
+  readonly department: string | null;
   readonly isActive: boolean;
   readonly emailVerifiedAt: Date | null;
   readonly lastLoginAt: Date | null;
+  readonly twoFactorEnabled: boolean;
+  readonly twoFactorSecret: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | null;
@@ -44,13 +53,22 @@ export class UserEntity {
   constructor(props: {
     id: string;
     email: string;
+    googleSubject?: string | null;
     passwordHash: string;
     firstName: string;
     lastName: string;
     profilePicture?: string | null;
+    dni?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    district?: string | null;
+    province?: string | null;
+    department?: string | null;
     isActive: boolean;
     emailVerifiedAt?: Date | null;
     lastLoginAt?: Date | null;
+    twoFactorEnabled?: boolean;
+    twoFactorSecret?: string | null;
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date | null;
@@ -58,13 +76,22 @@ export class UserEntity {
   }) {
     this.id = props.id;
     this.email = props.email;
+    this.googleSubject = props.googleSubject ?? null;
     this.passwordHash = props.passwordHash;
     this.firstName = props.firstName;
     this.lastName = props.lastName;
     this.profilePicture = props.profilePicture ?? null;
+    this.dni = props.dni ?? null;
+    this.phone = props.phone ?? null;
+    this.address = props.address ?? null;
+    this.district = props.district ?? null;
+    this.province = props.province ?? null;
+    this.department = props.department ?? null;
     this.isActive = props.isActive;
     this.emailVerifiedAt = props.emailVerifiedAt ?? null;
     this.lastLoginAt = props.lastLoginAt ?? null;
+    this.twoFactorEnabled = props.twoFactorEnabled ?? false;
+    this.twoFactorSecret = props.twoFactorSecret ?? null;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
     this.deletedAt = props.deletedAt ?? null;

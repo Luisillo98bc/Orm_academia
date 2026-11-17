@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchApi, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -18,9 +18,14 @@ import {
   Globe,
   Pencil,
   ExternalLink,
+  CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { useConfirm } from "@/components/confirm-provider";
+import { SummaryStrip } from "@/components/dashboard/workspace-tabs";
+import Image from "next/image";
 
 interface Announcement {
   id: string;
@@ -34,6 +39,8 @@ interface Announcement {
   ctaText?: string;
   ctaUrl?: string;
   createdAt: string;
+  landingStartsAt?: string | null;
+  landingEndsAt?: string | null;
   author: { firstName: string; lastName: string };
 }
 
@@ -47,8 +54,25 @@ const CTA_DESTINATION_OPTIONS = [
   { label: "URL Personalizada / Enlace Externo", value: "CUSTOM" },
 ];
 
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
+}
+
+function formatScheduleDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+  return new Date(value).toLocaleString("es-PE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export default function AnnouncementsPage() {
   const { user } = useAuth();
+  const confirmAction = useConfirm();
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -56,6 +80,11 @@ export default function AnnouncementsPage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [visibility, setVisibility] = useState("");
+  const [publishOnSave, setPublishOnSave] = useState(true);
+  const announcementState = (ann: Announcement) => !ann.isActive ? "draft" : ann.showOnLanding && ann.landingEndsAt && new Date(ann.landingEndsAt) < new Date() ? "expired" : ann.showOnLanding && ann.landingStartsAt && new Date(ann.landingStartsAt) > new Date() ? "scheduled" : "published";
+  const visibleAnnouncements = announcements.filter(ann => `${ann.title} ${ann.content}`.toLowerCase().includes(search.toLowerCase()) && (!visibility || announcementState(ann) === visibility));
 
   // Form state
   const [title, setTitle] = useState("");
@@ -67,28 +96,31 @@ export default function AnnouncementsPage() {
   const [ctaText, setCtaText] = useState("");
   const [ctaDestination, setCtaDestination] = useState("/#cursos");
   const [customCtaUrl, setCustomCtaUrl] = useState("");
+  const [landingStartsAt, setLandingStartsAt] = useState("");
+  const [landingEndsAt, setLandingEndsAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const isAdmin = user?.roles?.[0] === "ADMIN";
 
-  const loadAnnouncements = async () => {
+  const loadAnnouncements = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchApi("/communication/announcements");
+      const data = await fetchApi(isAdmin ? "/communication/announcements/manage" : "/communication/announcements");
       setAnnouncements(data || []);
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Error al cargar anuncios"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadAnnouncements(), 0);
     return () => window.clearTimeout(timeoutId);
-  }, []);
+  }, [loadAnnouncements]);
 
   const resetForm = () => {
+    setPublishOnSave(true);
     setTitle("");
     setContent("");
     setType("info");
@@ -98,11 +130,14 @@ export default function AnnouncementsPage() {
     setCtaText("");
     setCtaDestination("/#cursos");
     setCustomCtaUrl("");
+    setLandingStartsAt("");
+    setLandingEndsAt("");
     setEditingId(null);
     setShowForm(false);
   };
 
   const handleEditClick = (ann: Announcement) => {
+    setPublishOnSave(ann.isActive);
     setEditingId(ann.id);
     setTitle(ann.title);
     setContent(ann.content);
@@ -111,6 +146,8 @@ export default function AnnouncementsPage() {
     setShowOnLanding(ann.showOnLanding || false);
     setImageUrl(ann.imageUrl || "");
     setCtaText(ann.ctaText || "");
+    setLandingStartsAt(toDateTimeLocal(ann.landingStartsAt));
+    setLandingEndsAt(toDateTimeLocal(ann.landingEndsAt));
 
     const url = ann.ctaUrl || "";
     const matched = CTA_DESTINATION_OPTIONS.find((opt) => opt.value === url);
@@ -136,7 +173,23 @@ export default function AnnouncementsPage() {
     setError("");
     setSuccess("");
 
+    if (showOnLanding) {
+      if (!landingEndsAt) {
+        setError("Define una fecha de término para mostrar el anuncio en la landing.");
+        setSubmitting(false);
+        return;
+      }
+      if (landingStartsAt && new Date(landingEndsAt) <= new Date(landingStartsAt)) {
+        setError("La fecha de término debe ser posterior al inicio.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const finalCtaUrl = ctaDestination === "CUSTOM" ? customCtaUrl.trim() : ctaDestination;
+    const normalizedCtaUrl = /^\/(?!\/)/.test(finalCtaUrl)
+      ? new URL(finalCtaUrl, window.location.origin).toString()
+      : finalCtaUrl;
 
     try {
       const payload = {
@@ -144,10 +197,13 @@ export default function AnnouncementsPage() {
         content: content.trim(),
         type,
         targetAudience,
+        isActive: publishOnSave,
         showOnLanding,
         imageUrl: imageUrl.trim() || undefined,
         ctaText: ctaText.trim() || undefined,
-        ctaUrl: finalCtaUrl || undefined,
+        ctaUrl: normalizedCtaUrl || undefined,
+        landingStartsAt: showOnLanding && landingStartsAt ? new Date(landingStartsAt).toISOString() : null,
+        landingEndsAt: showOnLanding && landingEndsAt ? new Date(landingEndsAt).toISOString() : null,
       };
 
       if (editingId) {
@@ -161,7 +217,7 @@ export default function AnnouncementsPage() {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        setSuccess("Anuncio publicado exitosamente");
+        setSuccess(publishOnSave ? "Anuncio publicado exitosamente" : "Borrador guardado exitosamente");
       }
 
       resetForm();
@@ -174,7 +230,7 @@ export default function AnnouncementsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de eliminar este anuncio?")) return;
+    if (!(await confirmAction({ title: "Eliminar anuncio", description: "El anuncio dejará de estar disponible para los usuarios. Esta acción no se puede deshacer.", confirmLabel: "Eliminar" }))) return;
     setDeleting(id);
     setError("");
     try {
@@ -234,21 +290,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-            <Megaphone className="h-8 w-8" />
-            Tablón de Anuncios
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            {isAdmin
-              ? "Crea, edita y gestiona los anuncios de la academia."
-              : "Anuncios y avisos importantes de la academia."}
-          </p>
-        </div>
-        {isAdmin && (
-          <Button
+      <PageHeader eyebrow="Comunicación institucional" title="Tablón de anuncios" description={isAdmin ? "Crea, edita y gestiona los anuncios de la academia." : "Consulta los anuncios y avisos importantes de la academia."} actions={isAdmin ? <Button
             onClick={() => {
               if (showForm) resetForm();
               else {
@@ -256,13 +298,11 @@ export default function AnnouncementsPage() {
                 setShowForm(true);
               }
             }}
-            className="gap-2 shadow-md rounded-xl"
+            className="gap-2"
           >
             {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {showForm ? "Cancelar" : "Nuevo Anuncio"}
-          </Button>
-        )}
-      </div>
+          </Button> : undefined} />
 
       {/* Alerts */}
       {success && (
@@ -417,6 +457,36 @@ export default function AnnouncementsPage() {
                     </div>
                   )}
 
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="landing-starts-at" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+                        Inicio de publicación (Opcional)
+                      </label>
+                      <Input
+                        id="landing-starts-at"
+                        type="datetime-local"
+                        value={landingStartsAt}
+                        onChange={(e) => setLandingStartsAt(e.target.value)}
+                        max={landingEndsAt || undefined}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="landing-ends-at" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+                        Término de publicación (Obligatorio)
+                      </label>
+                      <Input
+                        id="landing-ends-at"
+                        type="datetime-local"
+                        value={landingEndsAt}
+                        onChange={(e) => setLandingEndsAt(e.target.value)}
+                        min={landingStartsAt || undefined}
+                        required={showOnLanding}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+
                   <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
                     <ExternalLink className="h-3 w-3 text-primary" />
                     <span>Ruta seleccionada: <strong className="text-foreground">{ctaDestination === "CUSTOM" ? customCtaUrl || "(vacío)" : ctaDestination}</strong></span>
@@ -426,6 +496,8 @@ export default function AnnouncementsPage() {
             )}
           </div>
 
+          <aside className="rounded-xl border border-border bg-background p-5" aria-label="Vista previa del anuncio"><p className="page-eyebrow">Vista previa · {showOnLanding ? "Portada y campus" : "Campus"}</p>{imageUrl && <Image unoptimized width={640} height={240} src={imageUrl} alt="Imagen del anuncio" className="mb-4 max-h-48 w-full rounded-lg object-cover" />}<h3>{title || "Título del anuncio"}</h3><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{content || "Tu mensaje aparecerá aquí."}</p>{ctaText && <span className="mt-3 inline-block rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{ctaText}</span>}<p className="mt-4 text-xs text-muted-foreground">Dirigido a: {getAudienceLabel(targetAudience)}</p></aside>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={publishOnSave} onChange={event => setPublishOnSave(event.target.checked)} />Publicar al guardar. Desmarca para conservar como borrador.</label>
           <div className="flex items-center justify-end gap-3 pt-2">
             <Button
               type="button"
@@ -447,14 +519,15 @@ export default function AnnouncementsPage() {
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {editingId ? "Guardar Cambios" : "Publicar Anuncio"}
+              {!publishOnSave ? "Guardar borrador" : editingId ? "Guardar Cambios" : "Publicar Anuncio"}
             </Button>
           </div>
         </form>
       )}
 
       {/* Announcements List */}
-      {announcements.length === 0 ? (
+      {isAdmin && <><SummaryStrip items={[{ label: "Publicados", value: announcements.filter(ann => announcementState(ann) === "published").length }, { label: "Borradores / pausados", value: announcements.filter(ann => !ann.isActive).length }, { label: "Programados en portada", value: announcements.filter(ann => announcementState(ann) === "scheduled").length }]} /><div className="workspace-toolbar"><label className="min-w-48 flex-1">Buscar anuncio<Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Título o contenido" /></label><label>Visibilidad<select value={visibility} onChange={event => setVisibility(event.target.value)}><option value="">Todos</option><option value="published">Publicados</option><option value="draft">Borradores / pausados</option><option value="scheduled">Programados en portada</option><option value="expired">Vencidos en portada</option></select></label></div></>}
+      {visibleAnnouncements.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-card rounded-2xl border border-border/50">
           <div className="p-6 rounded-full bg-muted/50 mb-4">
             <Megaphone className="h-12 w-12 text-muted-foreground/50" />
@@ -466,7 +539,7 @@ export default function AnnouncementsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {announcements.map((ann) => (
+          {visibleAnnouncements.map((ann) => (
             <div
               key={ann.id}
               className={`rounded-2xl border p-5 md:p-6 flex gap-4 transition-all hover:shadow-lg ${getTypeStyle(ann.type)}`}
@@ -534,6 +607,12 @@ export default function AnnouncementsPage() {
                       <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full dark:bg-emerald-900/30 dark:text-emerald-400 font-semibold">
                         <Globe className="h-3 w-3" />
                         Landing ({ann.ctaUrl || "/#cursos"})
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                        <CalendarClock className="h-3 w-3" />
+                        {ann.landingEndsAt
+                          ? `Hasta ${formatScheduleDate(ann.landingEndsAt)}`
+                          : "Sin fecha de término"}
                       </span>
                     </>
                   )}

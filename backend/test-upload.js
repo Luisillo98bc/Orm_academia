@@ -1,18 +1,25 @@
-import fs from 'fs';
-import path from 'path';
+const apiBaseUrl = (process.env.API_BASE_URL || 'http://localhost:3003/api/v1').replace(/\/$/, '');
+const email = process.env.TEST_ADMIN_EMAIL;
+const password = process.env.TEST_ADMIN_PASSWORD;
+
+if (!email || !password) {
+  throw new Error(
+    'Define TEST_ADMIN_EMAIL y TEST_ADMIN_PASSWORD para ejecutar esta prueba. No se usan credenciales por defecto.',
+  );
+}
 
 async function test() {
-  const tokenRes = await fetch("http://localhost:4000/api/v1/auth/login", {
+  const tokenRes = await fetch(`${apiBaseUrl}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "admin@academia.edu", password: "admin123" })
+    body: JSON.stringify({ email, password })
   });
   const tokenData = await tokenRes.json();
   const token = tokenData.access_token;
   console.log("Token:", token ? "Got token" : "Failed");
 
   // Create course
-  const courseRes = await fetch("http://localhost:4000/api/v1/academic/courses", {
+  const courseRes = await fetch(`${apiBaseUrl}/academic/courses`, {
     method: "POST",
     headers: { 
       "Content-Type": "application/json",
@@ -28,19 +35,14 @@ async function test() {
   const course = await courseRes.json();
   console.log("Created course:", course);
 
-  // Upload image
-  // Let's create a dummy image
-  fs.writeFileSync("dummy.jpg", "fake image content");
-  
-  const FormData = require('form-data');
+  // Upload a tiny valid GIF held in memory; no local test file is created.
   const form = new FormData();
-  form.append('file', fs.createReadStream('dummy.jpg'));
+  form.append('file', new Blob([Buffer.from('GIF89a')], { type: 'image/gif' }), 'test-upload.gif');
 
-  const uploadRes = await fetch(`http://localhost:4000/api/v1/academic/courses/${course.id}/image`, {
+  const uploadRes = await fetch(`${apiBaseUrl}/academic/courses/${course.id}/image`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,
-      ...form.getHeaders()
     },
     body: form
   });

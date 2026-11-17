@@ -27,21 +27,33 @@ import { SyllabusService } from './application/services/syllabus.service';
 import { SearchService } from './application/services/search.service';
 import { ReportsService } from './application/services/reports.service';
 import { AcademicMetricsService } from './application/services/academic-metrics.service';
+import { ConversionAnalyticsService } from './application/services/conversion-analytics.service';
+import { ConversionAnalyticsController } from './presentation/controllers/conversion-analytics.controller';
 import { PrismaModule } from '../../shared/infrastructure/prisma/prisma.module';
+import { CommunicationModule } from '../communication/communication.module';
+import { AcademicReminderSchedulerService } from './academic-reminder-scheduler.service';
+import { ContentVersionService } from './application/services/content-version.service';
+import { PaymentReconciliationSchedulerService } from './payment-reconciliation-scheduler.service';
+import { EnrollmentManagementService } from './application/services/enrollment-management.service';
+import { EnrollmentManagementController } from './presentation/controllers/enrollment-management.controller';
+
+import { ProspectsModule } from '../prospects/prospects.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, CommunicationModule, ProspectsModule],
   controllers: [
+    EnrollmentManagementController,
     AcademicController,
     PaymentsController,
     SyllabusController,
     SearchController,
     ReportsController,
+    ConversionAnalyticsController,
   ],
   providers: [
+    EnrollmentManagementService,
     ManageCourseUseCase,
     ManageCohortUseCase,
-    EnrollStudentUseCase,
     EnrollStudentUseCase,
     AcademicExtrasService,
     PaymentsService,
@@ -49,6 +61,10 @@ import { PrismaModule } from '../../shared/infrastructure/prisma/prisma.module';
     SearchService,
     ReportsService,
     AcademicMetricsService,
+    ConversionAnalyticsService,
+    AcademicReminderSchedulerService,
+    ContentVersionService,
+    PaymentReconciliationSchedulerService,
     // ── Binding: Puerto → Adaptador ──
     {
       provide: ENROLLMENT_REPOSITORY,
@@ -67,6 +83,8 @@ import { PrismaModule } from '../../shared/infrastructure/prisma/prisma.module';
     // Exportar el binding para que otros módulos lo inyecten
     ENROLLMENT_REPOSITORY,
     AcademicExtrasService,
+    AcademicReminderSchedulerService,
+    PaymentReconciliationSchedulerService,
   ],
 })
 export class AcademicModule {}

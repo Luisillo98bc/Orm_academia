@@ -20,12 +20,20 @@ import {
   Settings,
   UserCheck,
   UserX,
+  Copy,
 } from "lucide-react";
 import { CreateCohortModal } from "@/components/admin/create-cohort-modal";
 import Link from "next/link";
+import Image from "next/image";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { getCohortImageUrl } from "@/lib/media";
+import { useConfirm } from "@/components/confirm-provider";
+import { SummaryStrip } from "@/components/dashboard/workspace-tabs";
+import { Input } from "@/components/ui/input";
 
 export default function CohortsPage() {
   const { user } = useAuth();
+  const confirmAction = useConfirm();
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [teachersList, setTeachersList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,11 +41,56 @@ export default function CohortsPage() {
   const [success, setSuccess] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Cohort | null>(null);
+  const [search, setSearch] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
+  const [cloningId, setCloningId] = useState<string | null>(null);
+  const [recentClonedIds, setRecentClonedIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = window.sessionStorage.getItem("academy:recent-cloned-cohorts");
+      return saved ? (JSON.parse(saved) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const isClonedName = (name?: string) =>
+    Boolean(name && (/^\[CLON\]/i.test(name.trim()) || /\(Nueva Edici[oó]n\)/i.test(name) || /\(Clon\)/i.test(name)));
+
+  const stage = (cohort: Cohort) => !cohort.isActive ? "closed" : new Date(cohort.endDate) < new Date() ? "finished" : new Date(cohort.startDate) > new Date() ? "upcoming" : "running";
+  const stageLabel: Record<string, string> = { closed: "Cerrada", finished: "Finalizada", upcoming: "Próximo inicio", running: "En curso" };
+
+  const filteredCohorts = cohorts
+    .filter(
+      (cohort) =>
+        `${cohort.name} ${cohort.course?.name || ""} ${cohort.teachers?.map((t) => `${t.firstName} ${t.lastName}`).join(" ")}`
+          .toLowerCase()
+          .includes(search.toLowerCase()) &&
+        (!stateFilter || (stateFilter === "no-teacher" ? !cohort.teachers?.length : stage(cohort) === stateFilter)),
+    )
+    .toSorted((a, b) => {
+      const aRecentIdx = recentClonedIds.indexOf(a.id);
+      const bRecentIdx = recentClonedIds.indexOf(b.id);
+      if (aRecentIdx !== -1 || bRecentIdx !== -1) {
+        if (aRecentIdx === -1) return 1;
+        if (bRecentIdx === -1) return -1;
+        return aRecentIdx - bRecentIdx;
+      }
+      const aClone = isClonedName(a.name) ? 1 : 0;
+      const bClone = isClonedName(b.name) ? 1 : 0;
+      if (aClone !== bClone) return bClone - aClone;
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
 
   const [editForm, setEditForm] = useState({
     name: "",
+    modality: "ONLINE",
+    schedule: "",
     maxStudents: 30,
     price: "0.00",
+    installments: 1,
     startDate: "",
     endDate: "",
     discountPercentage: 0,
@@ -53,10 +106,10 @@ export default function CohortsPage() {
     try {
       const [cohortsData, teachersData] = await Promise.all([
         fetchApi("/academic/cohorts"),
-        fetchApi("/users?role=DOCENTE").catch(() => []),
+        fetchApi("/users?role=DOCENTE&limit=100").catch(() => []),
       ]);
       setCohorts(cohortsData || []);
-      setTeachersList(teachersData || []);
+      setTeachersList(teachersData?.data || teachersData || []);
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Error al cargar las cohortes"));
     } finally {
@@ -78,8 +131,11 @@ export default function CohortsPage() {
 
     setEditForm({
       name: c.name || "",
+      modality: c.modality || "ONLINE",
+      schedule: c.schedule || "",
       maxStudents: c.maxCapacity || c.maxStudents || 30,
-      price: c.price || "0.00",
+      price: String(c.price ?? "0.00"),
+      installments: Math.max(1, Number(c.installments || 1)),
       startDate: c.startDate ? new Date(c.startDate).toISOString().split("T")[0] : "",
       endDate: c.endDate ? new Date(c.endDate).toISOString().split("T")[0] : "",
       discountPercentage: c.discountPercentage || 0,
@@ -105,8 +161,11 @@ export default function CohortsPage() {
     try {
       const payload: Record<string, unknown> = {
         name: editForm.name,
+        modality: editForm.modality,
+        schedule: editForm.schedule,
         maxStudents: Number(editForm.maxStudents),
         price: editForm.price,
+        installments: Math.max(1, Number(editForm.installments || 1)),
         startDate: new Date(editForm.startDate).toISOString(),
         endDate: new Date(editForm.endDate).toISOString(),
         teacherIds: editForm.teacherIds,
@@ -145,13 +204,80 @@ export default function CohortsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar esta cohorte?")) return;
+    if (!(await confirmAction({ title: "Eliminar cohorte", description: "La cohorte dejará de estar disponible. Verifica que no tenga matrículas activas.", confirmLabel: "Eliminar cohorte" }))) return;
     try {
       await fetchApi(`/academic/cohorts/${id}`, { method: "DELETE" });
       setSuccess("Cohorte eliminada correctamente");
       loadData();
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Error al eliminar"));
+    }
+  };
+
+  const handleDuplicate = async (c: Cohort) => {
+    setCloningId(c.id);
+    setError("");
+    try {
+      const nextStart = new Date(c.startDate);
+      nextStart.setDate(nextStart.getDate() + 30);
+      const nextEnd = new Date(c.endDate);
+      nextEnd.setDate(nextEnd.getDate() + 30);
+      const baseName = c.name
+        .replace(/^\[CLON\]\s*/i, "")
+        .replace(/\s*\(Nueva Edici[oó]n\)/gi, "")
+        .trim();
+      const clonedName = `[CLON] ${baseName} (Nueva Edición)`;
+
+      const created = await fetchApi(`/academic/cohorts/${c.id}/duplicate`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: clonedName,
+          startDate: nextStart.toISOString(),
+          endDate: nextEnd.toISOString(),
+          maxStudents: Number(c.maxCapacity || c.maxStudents || 30),
+          price: String(c.price ?? "0.00"),
+        }),
+      }).catch(() =>
+        fetchApi("/academic/cohorts", {
+          method: "POST",
+          body: JSON.stringify({
+            name: clonedName,
+            courseId: c.courseId,
+            startDate: nextStart.toISOString(),
+            endDate: nextEnd.toISOString(),
+            maxStudents: Number(c.maxCapacity || c.maxStudents || 30),
+            price: Number(c.price || 0),
+            installments: Math.max(1, Number(c.installments || 1)),
+            modality: c.modality || "ONLINE",
+            schedule: c.schedule || undefined,
+            teacherIds: c.teachers?.map((t) => t.id) || [],
+          }),
+        })
+      );
+
+      const createdId = created?.id as string | undefined;
+      if (createdId) {
+        setRecentClonedIds((prev) => {
+          const next = [createdId, ...prev.filter((id) => id !== createdId)];
+          try {
+            window.sessionStorage.setItem("academy:recent-cloned-cohorts", JSON.stringify(next));
+          } catch {
+            // Optional storage
+          }
+          return next;
+        });
+      }
+
+      setSearch("");
+      setStateFilter("");
+      setSuccess(`¡Listo! Se creó "${clonedName}" y se ubicó al inicio de la tabla.`);
+      const updatedCohorts = await fetchApi("/academic/cohorts");
+      setCohorts(updatedCohorts || []);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "No se pudo clonar la cohorte"));
+    } finally {
+      setCloningId(null);
     }
   };
 
@@ -169,17 +295,9 @@ export default function CohortsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Gestión de Cohortes y Profesores</h2>
-          <p className="text-muted-foreground mt-1">
-            Asigna, cambia o desvincula docentes y administra las fechas y vacantes de los cursos.
-          </p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 rounded-xl">
+      <PageHeader eyebrow="Operación académica" title="Gestión de cohortes y docentes" description="Asigna docentes y administra las fechas, vacantes y condiciones de cada clase." actions={<Button onClick={() => setIsModalOpen(true)} className="gap-2">
           <PlusCircle className="h-4 w-4" /> Abrir Nueva Cohorte
-        </Button>
-      </div>
+        </Button>} />
 
       {error && (
         <div className="flex items-center gap-2 p-4 text-red-600 bg-red-100 rounded-xl dark:bg-red-900/30 dark:text-red-400">
@@ -192,19 +310,37 @@ export default function CohortsPage() {
       )}
 
       {success && (
-        <div className="flex items-center gap-2 p-4 text-green-600 bg-green-100 rounded-xl dark:bg-green-900/30 dark:text-green-400">
-          <CheckCircle2 className="h-5 w-5" />
-          <p className="text-sm">{success}</p>
+        <div className="flex flex-wrap items-center gap-3 p-4 text-green-700 bg-green-100 rounded-xl dark:bg-green-900/30 dark:text-green-300 border border-green-500/20">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+          <p className="text-sm font-medium">{success}</p>
+          {recentClonedIds[0] && cohorts.some((c) => c.id === recentClonedIds[0]) && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const target = cohorts.find((c) => c.id === recentClonedIds[0]);
+                if (target) handleEdit(target);
+              }}
+              className="ml-2 h-8 rounded-lg border-green-600/30 bg-white/80 text-xs font-bold text-green-800 hover:bg-white dark:bg-slate-900 dark:text-green-300 cursor-pointer"
+            >
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Editar clon ahora
+            </Button>
+          )}
           <button onClick={() => setSuccess("")} className="ml-auto">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      <div className="bg-card rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+      <SummaryStrip items={[{ label: "Cohortes", value: cohorts.length }, { label: "En curso", value: cohorts.filter(c => stage(c) === "running").length }, { label: "Próximos inicios", value: cohorts.filter(c => stage(c) === "upcoming").length }, { label: "Sin docente", value: cohorts.filter(c => c.isActive && !c.teachers?.length).length }]} />
+      <div className="workspace-toolbar"><label className="min-w-48 flex-1">Buscar cohorte<Input placeholder="Curso, cohorte o docente" value={search} onChange={e => setSearch(e.target.value)} /></label><label>Estado<select value={stateFilter} onChange={e => setStateFilter(e.target.value)}><option value="">Todos</option><option value="upcoming">Próximo inicio</option><option value="running">En curso</option><option value="finished">Finalizadas</option><option value="closed">Cerradas</option><option value="no-teacher">Sin docente</option></select></label>{(search || stateFilter) && <Button variant="ghost" onClick={() => { setSearch(""); setStateFilter(""); }}>Limpiar filtros</Button>}</div>
+      <div className="bg-card rounded-2xl border border-border/50 overflow-x-auto shadow-sm">
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-muted-foreground uppercase bg-muted/60 border-b border-border/50 font-bold">
             <tr>
+              <th className="px-6 py-4 font-semibold">Imagen</th>
               <th className="px-6 py-4 font-semibold">Nombre Cohorte</th>
               <th className="px-6 py-4 font-semibold">Curso</th>
               <th className="px-6 py-4 font-semibold">Profesor(es) Asignado(s)</th>
@@ -214,21 +350,64 @@ export default function CohortsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {cohorts.length === 0 ? (
+            {filteredCohorts.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                  No hay cohortes abiertas todavía.
+                <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
+                  No hay cohortes que coincidan con esta vista.
                 </td>
               </tr>
             ) : (
-              cohorts.map((cohort) => {
+              filteredCohorts.map((cohort) => {
                 const isFull = cohort.enrolledCount >= cohort.maxCapacity;
                 const assignedTeachers = cohort.teachers || [];
+                const isRecentClone = recentClonedIds.includes(cohort.id);
+                const isClone = isRecentClone || isClonedName(cohort.name);
 
                 return (
-                  <tr key={cohort.id} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={cohort.id}
+                    className={`transition-colors ${
+                      isClone
+                        ? "bg-indigo-500/[0.06] hover:bg-indigo-500/[0.11] dark:bg-indigo-500/[0.12] dark:hover:bg-indigo-500/[0.18]"
+                        : "hover:bg-muted/30"
+                    }`}
+                  >
+                    <td className={`px-6 py-4 ${isClone ? "border-l-4 border-l-indigo-600" : ""}`}>
+                      <div className="relative h-12 w-20 overflow-hidden rounded-lg border border-border/60 bg-gradient-to-br from-slate-900 via-blue-950 to-primary/80">
+                        {getCohortImageUrl(cohort) ? (
+                          <Image unoptimized fill sizes="80px" src={getCohortImageUrl(cohort)!} alt={`Imagen de ${cohort.name}`} className="object-cover" />
+                        ) : (
+                          <BookOpen className="absolute inset-0 m-auto h-5 w-5 text-white/60" aria-hidden="true" />
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
-                      <div className="font-bold text-foreground text-primary">{cohort.name}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isRecentClone && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm">
+                            <Copy className="h-3 w-3" /> Recién clonado
+                          </span>
+                        )}
+                        {!isRecentClone && isClone && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                            <Copy className="h-3 w-3" /> Clon
+                          </span>
+                        )}
+                        <span className="font-bold text-primary">{cohort.name}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex rounded-md bg-muted px-2 py-1 text-xs font-medium">{stageLabel[stage(cohort)]}</span>
+                        {(cohort.installments ?? 1) > 1 ? (
+                          <span className="inline-flex items-center rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-bold text-violet-700 dark:text-violet-300">
+                            Mensual ({cohort.installments} cuotas de S/ {Number(cohort.price || 0).toFixed(2)})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            Pago único: S/ {Number(cohort.price || 0).toFixed(2)}
+                          </span>
+                        )}
+                        {!cohort.schedule && <span className="text-xs text-amber-700 dark:text-amber-400">Horario pendiente</span>}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -274,6 +453,7 @@ export default function CohortsPage() {
                       >
                         {cohort.enrolledCount} / {cohort.maxCapacity} alumnos
                       </span>
+                      <div className="mt-2 h-1.5 min-w-24 overflow-hidden rounded-full bg-muted" role="meter" aria-label={`Ocupación de ${cohort.name}`} aria-valuemin={0} aria-valuemax={Math.max(1, cohort.maxCapacity)} aria-valuenow={Math.min(cohort.enrolledCount, Math.max(1, cohort.maxCapacity))}><div className={isFull ? "h-full bg-amber-500" : "h-full bg-accent"} style={{ width: `${Math.min(100, cohort.maxCapacity > 0 ? cohort.enrolledCount / cohort.maxCapacity * 100 : 0)}%` }} /></div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -282,6 +462,21 @@ export default function CohortsPage() {
                             <Settings className="h-3.5 w-3.5 mr-1" /> Aula
                           </Button>
                         </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={cloningId === cohort.id}
+                          onClick={() => void handleDuplicate(cohort)}
+                          className="rounded-lg text-xs gap-1 cursor-pointer border-indigo-500/30 text-indigo-700 hover:bg-indigo-500/10 dark:text-indigo-300"
+                          title="Clonar cohorte y colocar al inicio"
+                        >
+                          {cloningId === cohort.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                          Clonar
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -387,6 +582,19 @@ export default function CohortsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="font-semibold text-foreground block mb-1">Modalidad</label>
+                  <select className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editForm.modality} onChange={(e) => setEditForm({ ...editForm, modality: e.target.value })}>
+                    <option value="ONLINE">Online</option><option value="PRESENCIAL">Presencial</option><option value="HIBRIDA">Híbrida</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">Horario</label>
+                  <input className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editForm.schedule} onChange={(e) => setEditForm({ ...editForm, schedule: e.target.value })} placeholder="Ej. Lun y Mié, 7:00 p. m." />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="font-semibold text-foreground block mb-1">Capacidad Máxima</label>
                   <input
                     type="number"
@@ -396,16 +604,40 @@ export default function CohortsPage() {
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-foreground block mb-1">Precio (S/)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
+                  <label className="font-semibold text-primary block mb-1">Modalidad de Cobro</label>
+                  <select
                     className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 outline-none"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                  />
+                    value={editForm.installments}
+                    onChange={(e) => setEditForm({ ...editForm, installments: Number(e.target.value) })}
+                  >
+                    <option value={1}>Pago único (1 cuota)</option>
+                    <option value={2}>Mensual — 2 meses (2 cuotas)</option>
+                    <option value={3}>Mensual — 3 meses (3 cuotas)</option>
+                    <option value={4}>Mensual — 4 meses (4 cuotas)</option>
+                    <option value={5}>Mensual — 5 meses (5 cuotas)</option>
+                    <option value={6}>Mensual — 6 meses (6 cuotas)</option>
+                    <option value={12}>Mensual — 12 meses (12 cuotas)</option>
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1">
+                  {editForm.installments > 1 ? "Monto por Mensualidad / Cuota (S/)" : "Precio Único (S/)"}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 outline-none"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                />
+                {editForm.installments > 1 && (
+                  <p className="mt-1 text-[11px] font-medium text-primary">
+                    El estudiante abonará {editForm.installments} mensualidades de S/ {Number(editForm.price || 0).toFixed(2)} desde «Mis Pagos».
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

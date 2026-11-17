@@ -76,13 +76,22 @@ model RolePermission {
 model User {
   id                String    @id @default(uuid()) @db.Uuid
   email             String    @unique @db.VarChar(255)
+  googleSubject     String?   @unique @map("google_subject") @db.VarChar(255)
   passwordHash      String    @map("password_hash") @db.VarChar(255)
   firstName         String    @map("first_name") @db.VarChar(100)
   lastName          String    @map("last_name") @db.VarChar(100)
   profilePicture    String?   @map("profile_picture") @db.VarChar(500)
+  dni               String?   @unique @db.VarChar(8)
+  phone             String?   @db.VarChar(20)
+  address           String?   @db.VarChar(500)
+  district          String?   @db.VarChar(100)
+  province          String?   @db.VarChar(100)
+  department        String?   @db.VarChar(100)
   isActive          Boolean   @default(true) @map("is_active")
   emailVerifiedAt   DateTime? @map("email_verified_at")
   lastLoginAt       DateTime? @map("last_login_at")
+  twoFactorEnabled  Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?   @map("two_factor_secret") @db.VarChar(255)
   resetToken        String?   @map("reset_token") @db.VarChar(255)
   resetTokenExpires DateTime? @map("reset_token_expires")
   createdAt         DateTime  @default(now()) @map("created_at")
@@ -101,21 +110,36 @@ model User {
   givenGrades   Grade[]       @relation("GradeGrader")
 
   // Relaciones — Fases 4, 6 y 7
-  workerProfile         Worker?
-  classAttendances      ClassAttendance[]   @relation("StudentAttendance")
-  teacherEvaluations    TeacherEvaluation[] @relation("EvaluatedTeacher")
-  studentEvaluations    TeacherEvaluation[] @relation("EvaluatingStudent")
-  authoredAnnouncements Announcement[]      @relation("AnnouncementAuthor")
-  authoredForumMessages ForumMessage[]      @relation("ForumMessageAuthor")
-  authoredForums        Forum[]             @relation("ForumAuthor")
-  notifications         Notification[]      @relation("UserNotifications")
-  issuedCertificates    Certificate[]       @relation("CertificateIssuer")
+  workerProfile           Worker?
+  classAttendances        ClassAttendance[]       @relation("StudentAttendance")
+  teacherEvaluations      TeacherEvaluation[]     @relation("EvaluatedTeacher")
+  studentEvaluations      TeacherEvaluation[]     @relation("EvaluatingStudent")
+  authoredAnnouncements   Announcement[]          @relation("AnnouncementAuthor")
+  authoredForumMessages   ForumMessage[]          @relation("ForumMessageAuthor")
+  authoredForums          Forum[]                 @relation("ForumAuthor")
+  notifications           Notification[]          @relation("UserNotifications")
+  notificationDeliveries  NotificationDelivery[]
+  notificationPreference  NotificationPreference?
+  favoriteCohorts         CohortFavorite[]
+  issuedCertificates      Certificate[]           @relation("CertificateIssuer")
+  signedContracts         Contract[]              @relation("ContractSigner")
+  approvedContracts       Contract[]              @relation("ContractApprover")
+  assignedProspects       Prospect[]              @relation("ProspectAssignee")
+  prospectNotes           ProspectNote[]          @relation("ProspectNoteAuthor")
+  materialProgress        MaterialProgress[]
+  supportTicketsRequested SupportTicket[]         @relation("SupportTicketRequester")
+  supportTicketsAssigned  SupportTicket[]         @relation("SupportTicketAssignee")
+  supportTicketMessages   SupportTicketMessage[]
+  createdOperatingCosts   OperatingCost[]         @relation("OperatingCostCreator")
+  contentVersions         ContentVersion[]
+  classroomPosts          ClassroomPost[]
+  quizAttempts            QuizAttempt[]
 
   // Relaciones — Mensajería directa
   sentDirectMessages     DirectMessage[] @relation("DMSender")
   receivedDirectMessages DirectMessage[] @relation("DMReceiver")
 
-  @@index([email])
+  @@index([isActive, deletedAt])
   @@map("users")
 }
 
@@ -230,6 +254,26 @@ enum GradeStatus {
   PUBLISHED // Calificación publicada al estudiante
 }
 
+enum CertificateType {
+  COMPLETION
+  GRADES
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Dominio Académico: Cursos y Cohortes
 // ─────────────────────────────────────────────────────────────────────────────
@@ -253,10 +297,11 @@ model Course {
   deletedAt           DateTime?   @map("deleted_at")
 
   // Relaciones
-  cohorts Cohort[]
+  cohorts        Cohort[]
+  operatingCosts OperatingCost[]
 
-  @@index([code])
   @@index([level])
+  @@index([isPublished, deletedAt])
   @@map("courses")
 }
 
@@ -266,8 +311,11 @@ model Cohort {
   id                 String    @id @default(uuid()) @db.Uuid
   courseId           String    @map("course_id") @db.Uuid
   name               String    @db.VarChar(200) // e.g. "Python Básico - Turno Mañana"
+  modality           String    @default("ONLINE") @db.VarChar(30)
+  schedule           String?   @db.VarChar(255)
   googleMeetLink     String?   @map("google_meet_link") @db.VarChar(500)
   price              Decimal   @default(0) @db.Decimal(12, 2)
+  installments       Int       @default(1) @map("installments")
   discountPercentage Float     @default(0) @map("discount_percentage")
   discountEndsAt     DateTime? @map("discount_ends_at")
   imageUrl           String?   @map("image_url") @db.VarChar(500)
@@ -288,10 +336,30 @@ model Cohort {
   teacherEvaluations TeacherEvaluation[]
   forums             Forum[]
   syllabusModules    SyllabusModule[]
+  prospects          Prospect[]
+  favorites          CohortFavorite[]
+  operatingCosts     OperatingCost[]
+  classroomPosts     ClassroomPost[]
+  questionBank       ClassroomQuestion[]
 
   @@index([courseId])
   @@index([startDate, endDate])
+  @@index([isActive, deletedAt, endDate])
   @@map("cohorts")
+}
+
+model CohortFavorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  cohortId  String   @map("cohort_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cohortId])
+  @@index([userId, createdAt])
+  @@map("cohort_favorites")
 }
 
 /// Matrícula de un estudiante en una cohorte específica.
@@ -300,6 +368,7 @@ model Enrollment {
   userId      String           @map("user_id") @db.Uuid
   cohortId    String           @map("cohort_id") @db.Uuid
   status      EnrollmentStatus @default(ACTIVE)
+  reservationExpiresAt DateTime? @map("reservation_expires_at")
   enrolledAt  DateTime         @default(now()) @map("enrolled_at")
   completedAt DateTime?        @map("completed_at")
   createdAt   DateTime         @default(now()) @map("created_at")
@@ -307,48 +376,87 @@ model Enrollment {
   deletedAt   DateTime?        @map("deleted_at")
 
   // Relaciones
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cohort      Cohort       @relation(fields: [cohortId], references: [id], onDelete: Restrict)
-  payment     Payment?
-  certificate Certificate?
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cohort       Cohort        @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  payment      Payment?
+  certificates Certificate[]
 
   // Un estudiante solo puede matricularse una vez por cohorte
   @@unique([userId, cohortId])
   @@index([status])
+  @@index([cohortId, status, reservationExpiresAt])
   @@map("enrollments")
 }
 
 /// Registro de pago para una matrícula.
 model Payment {
-  id           String        @id @default(uuid()) @db.Uuid
-  enrollmentId String        @unique @map("enrollment_id") @db.Uuid
-  amount       Decimal       @db.Decimal(12, 2)
-  method       PaymentMethod
-  status       PaymentStatus @default(PENDING)
-  voucherUrl   String?       @map("voucher_url") @db.VarChar(1000)
-  validatedAt  DateTime?     @map("validated_at")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id              String        @id @default(uuid()) @db.Uuid
+  enrollmentId    String        @unique @map("enrollment_id") @db.Uuid
+  idempotencyKey  String?       @unique @map("idempotency_key") @db.VarChar(64)
+  culqiOrderId    String?       @unique @map("culqi_order_id") @db.VarChar(40)
+  culqiChargeId   String?       @unique @map("culqi_charge_id") @db.VarChar(40)
+  culqiEventId    String?       @unique @map("culqi_event_id") @db.VarChar(50)
+  chargeAttemptKey String?      @map("charge_attempt_key") @db.VarChar(80)
+  chargeStartedAt DateTime?     @map("charge_started_at")
+  amount             Decimal       @db.Decimal(12, 2)
+  method             PaymentMethod
+  status             PaymentStatus @default(PENDING)
+  installmentNumber  Int           @default(1) @map("installment_number")
+  totalInstallments  Int           @default(1) @map("total_installments")
+  paidInstallments   Int           @default(0) @map("paid_installments")
+  nextDueDate        DateTime?     @map("next_due_date")
+  installmentHistory Json?         @map("installment_history")
+  voucherUrl         String?       @map("voucher_url") @db.VarChar(1000)
+  validatedAt     DateTime?     @map("validated_at")
+  rejectedAt      DateTime?     @map("rejected_at")
+  rejectionReason String?       @map("rejection_reason") @db.VarChar(500)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
+  @@index([status, updatedAt])
+  @@index([voucherUrl])
   @@map("payments")
 }
 
-/// Certificado de Finalización de Curso
+/// Evento anónimo del embudo comercial. No almacena correos, nombres ni datos bancarios.
+model ConversionEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  sessionId  String   @map("session_id") @db.VarChar(64)
+  event      String   @db.VarChar(50)
+  path       String?  @db.VarChar(500)
+  cohortId   String?  @map("cohort_id") @db.Uuid
+  paymentId  String?  @map("payment_id") @db.Uuid
+  metadata   Json?
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  @@index([event, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@index([cohortId, event])
+  @@map("conversion_events")
+}
+
+/// Certificado académico verificable.
 model Certificate {
-  id           String   @id @default(uuid()) @db.Uuid
-  code         String   @unique @db.VarChar(50) // Código único de validación (ej. CERT-A1B2)
-  enrollmentId String   @unique @map("enrollment_id") @db.Uuid
-  issueDate    DateTime @default(now()) @map("issue_date")
-  issuedBy     String?  @map("issued_by") @db.Uuid // Admin que lo emitió (null = automático)
-  createdAt    DateTime @default(now()) @map("created_at")
+  id               String          @id @default(uuid()) @db.Uuid
+  code             String          @unique @db.VarChar(50) // Código único de validación (ej. CERT-A1B2)
+  enrollmentId     String          @map("enrollment_id") @db.Uuid
+  type             CertificateType @default(COMPLETION)
+  issueDate        DateTime        @default(now()) @map("issue_date")
+  issuedBy         String?         @map("issued_by") @db.Uuid // Usuario que lo emitió (null = automático)
+  finalGrade       Float?          @map("final_grade")
+  attendanceRate   Float?          @map("attendance_rate")
+  templateVersion  String          @default("v1") @map("template_version") @db.VarChar(30)
+  revokedAt        DateTime?       @map("revoked_at")
+  revocationReason String?         @map("revocation_reason") @db.VarChar(500)
+  createdAt        DateTime        @default(now()) @map("created_at")
 
   // Relaciones
   enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   issuer     User?      @relation("CertificateIssuer", fields: [issuedBy], references: [id], onDelete: SetNull)
 
-  @@index([code])
+  @@unique([enrollmentId, type])
   @@map("certificates")
 }
 
@@ -380,10 +488,27 @@ model Material {
   fileUrl   String       @map("file_url") @db.VarChar(1000)
   createdAt DateTime     @default(now()) @map("created_at")
 
-  module SyllabusModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module   SyllabusModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress MaterialProgress[]
 
   @@index([moduleId])
+  @@index([fileUrl])
   @@map("materials")
+}
+
+model MaterialProgress {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  materialId  String    @map("material_id") @db.Uuid
+  completedAt DateTime? @map("completed_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, materialId])
+  @@index([userId])
+  @@map("material_progress")
 }
 
 /// Sesión Sincrónica grabada de un módulo
@@ -391,14 +516,18 @@ model ClassSession {
   id           String   @id @default(uuid()) @db.Uuid
   moduleId     String   @map("module_id") @db.Uuid
   title        String   @db.VarChar(200)
-  date         DateTime @db.Date
+  date         DateTime @db.Timestamptz(3)
   meetLink     String?  @map("meet_link") @db.VarChar(500)
   recordingUrl String?  @map("recording_url") @db.VarChar(1000)
+  durationMinutes Int   @default(60) @map("duration_minutes")
+  timeZone     String   @default("America/Lima") @map("time_zone") @db.VarChar(80)
   createdAt    DateTime @default(now()) @map("created_at")
 
-  module SyllabusModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module      SyllabusModule    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  attendances ClassAttendance[]
 
   @@index([moduleId])
+  @@index([moduleId, date])
   @@map("class_sessions")
 }
 
@@ -418,6 +547,13 @@ model Evaluation {
   maxScore    Float     @default(20) @map("max_score") // Nota máxima (escala 0–20)
   dueDate     DateTime? @map("due_date") // Fecha límite de entrega
   isPublished Boolean   @default(false) @map("is_published")
+  kind        String    @default("ASSIGNMENT") @db.VarChar(20)
+  allowResubmit Boolean @default(true) @map("allow_resubmit")
+  allowLate   Boolean   @default(true) @map("allow_late")
+  rubric      Json?
+  quiz        Json?
+  maxAttempts Int       @default(1) @map("max_attempts")
+  timeLimitMinutes Int  @default(30) @map("time_limit_minutes")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
@@ -426,6 +562,7 @@ model Evaluation {
   cohort       Cohort          @relation(fields: [cohortId], references: [id], onDelete: Restrict)
   module       SyllabusModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   deliverables Deliverable[]
+  quizAttempts QuizAttempt[]
 
   @@index([cohortId])
   @@index([dueDate])
@@ -451,11 +588,13 @@ model Deliverable {
   evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
   student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   grade      Grade? // Un entregable tiene una sola calificación (1:1)
+  revisions  SubmissionRevision[]
 
   // Un estudiante solo puede entregar una vez por evaluación
   @@unique([evaluationId, studentId])
   @@index([status])
   @@index([submittedAt])
+  @@index([fileUrl])
   @@map("deliverables")
 }
 
@@ -468,6 +607,7 @@ model Grade {
   score         Float // Nota numérica (0–20)
   feedback      String?     @db.Text // Retroalimentación cualitativa
   status        GradeStatus @default(DRAFT)
+  rubricScores Json? @map("rubric_scores")
   gradedAt      DateTime    @default(now()) @map("graded_at")
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
@@ -498,6 +638,16 @@ enum ContractType {
   FIXED_TERM
   INTERNSHIP
   FREELANCE
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  REJECTED
+  APPROVED
+  EXPIRED
+  CANCELLED
 }
 
 enum PayrollStatus {
@@ -537,21 +687,35 @@ model Worker {
 }
 
 model Contract {
-  id           String       @id @default(uuid()) @db.Uuid
-  workerId     String       @map("worker_id") @db.Uuid
-  type         ContractType @default(FIXED_TERM)
-  startDate    DateTime     @map("start_date")
-  endDate      DateTime?    @map("end_date")
-  agreedSalary Decimal      @map("agreed_salary") @db.Decimal(12, 2)
-  documentUrl  String?      @map("document_url") @db.VarChar(1000)
-  isActive     Boolean      @default(true) @map("is_active")
-  observations String?      @db.Text
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  id                String         @id @default(uuid()) @db.Uuid
+  workerId          String         @map("worker_id") @db.Uuid
+  type              ContractType   @default(FIXED_TERM)
+  status            ContractStatus @default(DRAFT)
+  startDate         DateTime       @map("start_date")
+  endDate           DateTime?      @map("end_date")
+  agreedSalary      Decimal        @map("agreed_salary") @db.Decimal(12, 2)
+  documentUrl       String?        @map("document_url") @db.VarChar(1000)
+  isActive          Boolean        @default(false) @map("is_active")
+  observations      String?        @db.Text
+  sentAt            DateTime?      @map("sent_at")
+  signedAt          DateTime?      @map("signed_at")
+  signedBy          String?        @map("signed_by") @db.Uuid
+  signatureName     String?        @map("signature_name") @db.VarChar(200)
+  signatureHash     String?        @map("signature_hash") @db.VarChar(128)
+  rejectionReason   String?        @map("rejection_reason") @db.VarChar(500)
+  approvedAt        DateTime?      @map("approved_at")
+  approvedBy        String?        @map("approved_by") @db.Uuid
+  expiryAlertSentAt DateTime?      @map("expiry_alert_sent_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  signer   User?  @relation("ContractSigner", fields: [signedBy], references: [id], onDelete: SetNull)
+  approver User?  @relation("ContractApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
 
   @@index([workerId])
+  @@index([status])
+  @@index([isActive, endDate])
   @@map("contracts")
 }
 
@@ -598,6 +762,7 @@ model ClassAttendance {
   id          String   @id @default(uuid()) @db.Uuid
   cohortId    String   @map("cohort_id") @db.Uuid
   studentId   String   @map("student_id") @db.Uuid
+  sessionId   String?  @map("session_id") @db.Uuid
   date        DateTime @db.Date
   isPresent   Boolean  @default(true) @map("is_present")
   isExcused   Boolean  @default(false) @map("is_excused")
@@ -605,21 +770,25 @@ model ClassAttendance {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  cohort  Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-  student User   @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+  cohort  Cohort        @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  student User          @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+  session ClassSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
-  @@unique([cohortId, studentId, date])
+  @@unique([sessionId, studentId])
+  @@index([cohortId, date])
+  @@index([sessionId])
   @@map("class_attendances")
 }
 
 model TeacherEvaluation {
-  id        String   @id @default(uuid()) @db.Uuid
-  cohortId  String   @map("cohort_id") @db.Uuid
-  teacherId String   @map("teacher_id") @db.Uuid
-  studentId String   @map("student_id") @db.Uuid
-  score     Int      @db.SmallInt // 1 to 5
-  comment   String?  @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  cohortId    String   @map("cohort_id") @db.Uuid
+  teacherId   String   @map("teacher_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  score       Int      @db.SmallInt // 1 to 5
+  comment     String?  @db.Text
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   cohort  Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   teacher User   @relation("EvaluatedTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
@@ -640,23 +809,26 @@ enum TargetAudience {
 }
 
 model Announcement {
-  id             String         @id @default(uuid()) @db.Uuid
-  title          String         @db.VarChar(200)
-  content        String         @db.Text
-  type           String         @default("info") @db.VarChar(20) // info, warning, success
-  targetAudience TargetAudience @default(ALL) @map("target_audience")
-  authorId       String         @map("author_id") @db.Uuid
-  isActive       Boolean        @default(true) @map("is_active")
+  id              String         @id @default(uuid()) @db.Uuid
+  title           String         @db.VarChar(200)
+  content         String         @db.Text
+  type            String         @default("info") @db.VarChar(20) // info, warning, success
+  targetAudience  TargetAudience @default(ALL) @map("target_audience")
+  authorId        String         @map("author_id") @db.Uuid
+  isActive        Boolean        @default(true) @map("is_active")
   // Campos para banners en la Landing Page
-  imageUrl       String?        @map("image_url") @db.VarChar(500)
-  ctaText        String?        @map("cta_text") @db.VarChar(100)
-  ctaUrl         String?        @map("cta_url") @db.VarChar(500)
-  showOnLanding  Boolean        @default(false) @map("show_on_landing")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  imageUrl        String?        @map("image_url") @db.VarChar(500)
+  ctaText         String?        @map("cta_text") @db.VarChar(100)
+  ctaUrl          String?        @map("cta_url") @db.VarChar(500)
+  showOnLanding   Boolean        @default(false) @map("show_on_landing")
+  landingStartsAt DateTime?      @map("landing_starts_at")
+  landingEndsAt   DateTime?      @map("landing_ends_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
 
   author User @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
 
+  @@index([showOnLanding, isActive, landingStartsAt, landingEndsAt])
   @@map("announcements")
 }
 
@@ -670,10 +842,64 @@ model Notification {
   actionUrl String?  @map("action_url") @db.VarChar(500)
   createdAt DateTime @default(now()) @map("created_at")
 
-  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  user       User                   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+enum NotificationChannel {
+  INTERNAL
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// Trazabilidad de cada canal de una notificación transaccional.
+model NotificationDelivery {
+  id                String                     @id @default(uuid()) @db.Uuid
+  userId            String                     @map("user_id") @db.Uuid
+  notificationId    String?                    @map("notification_id") @db.Uuid
+  channel           NotificationChannel
+  status            NotificationDeliveryStatus @default(PENDING)
+  recipient         String                     @db.VarChar(255)
+  providerMessageId String?                    @map("provider_message_id") @db.VarChar(255)
+  errorMessage      String?                    @map("error_message") @db.VarChar(500)
+  attempts          Int                        @default(0)
+  sentAt            DateTime?                  @map("sent_at")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, channel, createdAt])
+  @@index([status, createdAt])
+  @@index([notificationId])
+  @@map("notification_deliveries")
+}
+
+model NotificationPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  emailEnabled    Boolean  @default(true) @map("email_enabled")
+  whatsappEnabled Boolean  @default(true) @map("whatsapp_enabled")
+  pushEnabled     Boolean  @default(true) @map("push_enabled")
+  contractAlerts  Boolean  @default(true) @map("contract_alerts")
+  academicAlerts  Boolean  @default(true) @map("academic_alerts")
+  paymentAlerts   Boolean  @default(true) @map("payment_alerts")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 model Forum {
@@ -689,6 +915,7 @@ model Forum {
   author   User?          @relation("ForumAuthor", fields: [authorId], references: [id])
   messages ForumMessage[]
 
+  @@index([cohortId, isActive])
   @@map("forums")
 }
 
@@ -705,6 +932,7 @@ model ForumMessage {
   parent  ForumMessage?  @relation("ThreadReplies", fields: [parentId], references: [id])
   replies ForumMessage[] @relation("ThreadReplies")
 
+  @@index([forumId, parentId, createdAt])
   @@map("forum_messages")
 }
 
@@ -735,13 +963,224 @@ model DirectMessage {
 
 /// Configuración general administrable por el Super Admin
 model PlatformSettings {
-  id             String   @id @default(uuid()) @db.Uuid
-  logoUrl        String?  @map("logo_url") @db.VarChar(500)
-  whatsappNumber String?  @map("whatsapp_number") @db.VarChar(50)
-  supportEmail   String?  @map("support_email") @db.VarChar(255)
-  facebookUrl    String?  @map("facebook_url") @db.VarChar(500)
-  instagramUrl   String?  @map("instagram_url") @db.VarChar(500)
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid()) @db.Uuid
+  academyName         String   @default("Academia Virtual") @map("academy_name") @db.VarChar(150)
+  legalName           String?  @map("legal_name") @db.VarChar(200)
+  taxId               String?  @map("tax_id") @db.VarChar(30)
+  tagline             String?  @db.VarChar(250)
+  description         String?  @db.Text
+  logoUrl             String?  @map("logo_url") @db.VarChar(2000)
+  faviconUrl          String?  @map("favicon_url") @db.VarChar(2000)
+  primaryColor        String?  @map("primary_color") @db.VarChar(20)
+  whatsappNumber      String?  @map("whatsapp_number") @db.VarChar(50)
+  supportEmail        String?  @map("support_email") @db.VarChar(255)
+  salesEmail          String?  @map("sales_email") @db.VarChar(255)
+  address             String?  @db.VarChar(500)
+  facebookUrl         String?  @map("facebook_url") @db.VarChar(2000)
+  instagramUrl        String?  @map("instagram_url") @db.VarChar(2000)
+  linkedinUrl         String?  @map("linkedin_url") @db.VarChar(2000)
+  youtubeUrl          String?  @map("youtube_url") @db.VarChar(2000)
+  tiktokUrl           String?  @map("tiktok_url") @db.VarChar(2000)
+  xUrl                String?  @map("x_url") @db.VarChar(2000)
+  heroEyebrow         String?  @map("hero_eyebrow") @db.VarChar(150)
+  heroTitle           String?  @map("hero_title") @db.VarChar(250)
+  heroSubtitle        String?  @map("hero_subtitle") @db.Text
+  termsUrl            String?  @map("terms_url") @db.VarChar(2000)
+  privacyUrl          String?  @map("privacy_url") @db.VarChar(2000)
+  certificateTemplate Json?    @map("certificate_template")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("platform_settings")
+}
+
+enum ProspectStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  ENROLLED
+  LOST
+}
+
+/// Persona interesada captada desde la landing o registrada por el equipo comercial.
+model Prospect {
+  id                    String         @id @default(uuid()) @db.Uuid
+  name                  String         @db.VarChar(200)
+  email                 String?        @db.VarChar(255)
+  phone                 String?        @db.VarChar(50)
+  message               String?        @db.Text
+  source                String         @default("LANDING") @db.VarChar(50)
+  privacyConsentAt      DateTime?      @map("privacy_consent_at")
+  privacyConsentVersion String?        @map("privacy_consent_version") @db.VarChar(20)
+  status                ProspectStatus @default(NEW)
+  cohortId              String?        @map("cohort_id") @db.Uuid
+  assignedToId          String?        @map("assigned_to_id") @db.Uuid
+  nextFollowUpAt        DateTime?      @map("next_follow_up_at")
+  lastContactAt         DateTime?      @map("last_contact_at")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  cohort     Cohort?        @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  assignedTo User?          @relation("ProspectAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  notes      ProspectNote[]
+
+  @@index([status, createdAt])
+  @@index([assignedToId, status])
+  @@index([nextFollowUpAt])
+  @@index([email])
+  @@index([phone])
+  @@map("prospects")
+}
+
+model ProspectNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  prospectId String   @map("prospect_id") @db.Uuid
+  authorId   String   @map("author_id") @db.Uuid
+  content    String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  author   User     @relation("ProspectNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([prospectId, createdAt])
+  @@map("prospect_notes")
+}
+
+model SupportTicket {
+  id            String                @id @default(uuid()) @db.Uuid
+  requesterId   String                @map("requester_id") @db.Uuid
+  assigneeId    String?               @map("assignee_id") @db.Uuid
+  subject       String                @db.VarChar(200)
+  description   String                @db.Text
+  category      String                @default("GENERAL") @db.VarChar(50)
+  status        SupportTicketStatus   @default(OPEN)
+  priority      SupportTicketPriority @default(NORMAL)
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  lastMessageAt DateTime?             @map("last_message_at")
+  closedAt      DateTime?             @map("closed_at")
+
+  requester User                   @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignee  User?                  @relation("SupportTicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages  SupportTicketMessage[]
+
+  @@index([requesterId, status])
+  @@index([assigneeId, status])
+  @@index([status, priority, updatedAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id           String   @id @default(uuid()) @db.Uuid
+  ticketId     String   @map("ticket_id") @db.Uuid
+  authorId     String   @map("author_id") @db.Uuid
+  body         String   @db.Text
+  internalNote Boolean  @default(false) @map("internal_note")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
+}
+
+model OperatingCost {
+  id          String    @id @default(uuid()) @db.Uuid
+  courseId    String?   @map("course_id") @db.Uuid
+  cohortId    String?   @map("cohort_id") @db.Uuid
+  createdById String    @map("created_by_id") @db.Uuid
+  label       String    @db.VarChar(200)
+  amount      Decimal   @db.Decimal(12, 2)
+  periodStart DateTime  @map("period_start")
+  periodEnd   DateTime? @map("period_end")
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  course  Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  cohort  Cohort? @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  creator User    @relation("OperatingCostCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([periodStart, periodEnd])
+  @@index([courseId])
+  @@index([cohortId])
+  @@map("operating_costs")
+}
+
+model ContentVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  entityType  String   @map("entity_type") @db.VarChar(50)
+  entityId    String   @map("entity_id") @db.Uuid
+  version     Int
+  snapshot    Json
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  creator User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([entityType, entityId, version])
+  @@index([entityType, entityId, createdAt])
+  @@map("content_versions")
+}
+
+model ClassroomPost {
+  id String @id @default(uuid()) @db.Uuid
+  cohortId String @map("cohort_id") @db.Uuid
+  authorId String @map("author_id") @db.Uuid
+  title String @db.VarChar(200)
+  content String @db.Text
+  pinned Boolean @default(false)
+  publishedAt DateTime @default(now()) @map("published_at")
+  deletedAt DateTime? @map("deleted_at")
+  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  @@index([cohortId, publishedAt])
+  @@map("classroom_posts")
+}
+
+model ClassroomQuestion {
+  id String @id @default(uuid()) @db.Uuid
+  cohortId String @map("cohort_id") @db.Uuid
+  prompt String @db.Text
+  options Json
+  correctIndex Int @map("correct_index")
+  points Float @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  @@index([cohortId])
+  @@map("classroom_questions")
+}
+
+model QuizAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  evaluationId String @map("evaluation_id") @db.Uuid
+  studentId String @map("student_id") @db.Uuid
+  number Int
+  questions Json
+  answers Json
+  maxScore Float @map("max_score")
+  score Float?
+  startedAt DateTime @default(now()) @map("started_at")
+  expiresAt DateTime @map("expires_at")
+  submittedAt DateTime? @map("submitted_at")
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([evaluationId, studentId, number])
+  @@index([studentId, evaluationId])
+  @@map("quiz_attempts")
+}
+
+model SubmissionRevision {
+  id String @id @default(uuid()) @db.Uuid
+  deliverableId String @map("deliverable_id") @db.Uuid
+  fileUrl String @map("file_url") @db.VarChar(1000)
+  fileName String? @map("file_name") @db.VarChar(255)
+  comment String? @db.Text
+  status String @db.VarChar(20)
+  gradeSnapshot Json? @map("grade_snapshot")
+  submittedAt DateTime @map("submitted_at")
+  archivedAt DateTime @default(now()) @map("archived_at")
+  deliverable Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  @@index([deliverableId, archivedAt])
+  @@map("submission_revisions")
 }

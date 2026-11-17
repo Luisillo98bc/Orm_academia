@@ -2,12 +2,7 @@
 // CreateEvaluationUseCase
 // ============================================================================
 
-import {
-  Injectable,
-  Inject,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { EVALUATION_REPOSITORY } from '../../domain/repositories/evaluation.repository.interface';
 import type { IEvaluationRepository } from '../../domain/repositories/evaluation.repository.interface';
 import { CreateEvaluationDto } from '../dtos/create-evaluation.dto';
@@ -20,6 +15,7 @@ export class CreateEvaluationUseCase {
   ) {}
 
   async execute(dto: CreateEvaluationDto, teacherId: string) {
+    void teacherId;
     // Aquí idealmente validaríamos que la cohorte existe y que teacherId es el profesor asignado.
     // Por simplicidad para el avance rápido, asumimos que el guard o el frontend lo manejan,
     // o podríamos inyectar el CohortRepository si hiciera falta.

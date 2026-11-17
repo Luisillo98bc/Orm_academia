@@ -1,327 +1,40 @@
 "use client";
 
-import type { Cohort, Course, User } from "@/types/domain";
-
-import { useState, useEffect } from "react";
-import { fetchApi } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import {
-  RefreshCw,
-  BookOpen,
-  Calendar,
-  Users,
-  Loader2,
-  CheckCircle2,
-  ArchiveRestore,
-} from "lucide-react";
+import { useState } from "react";
+import { ArchiveRestore, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import type { Course, Cohort, User } from "@/types/domain";
+import { fetchApi } from "@/lib/api";
+import { useRemoteData } from "@/lib/use-remote-data";
+import { useConfirm } from "@/components/confirm-provider";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { WorkspaceTabs, SummaryStrip } from "@/components/dashboard/workspace-tabs";
+import { DataSection } from "@/components/dashboard/data-section";
 
 export default function AdminTrashPage() {
-  const [activeTab, setActiveTab] = useState<"courses" | "cohorts" | "users">("courses");
-  const [trashData, setTrashData] = useState<{ courses: Course[]; cohorts: Cohort[] }>({
-    courses: [],
-    cohorts: [],
-  });
-  const [trashUsers, setTrashUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [restoringId, setRestoringId] = useState<string | null>(null);
-
-  const loadTrashData = async () => {
-    setLoading(true);
-    try {
-      const [academicRes, usersRes] = await Promise.all([
-        fetchApi("/academic/trash").catch(() => ({ courses: [], cohorts: [] })),
-        fetchApi("/users/trash").catch(() => []),
-      ]);
-      setTrashData(academicRes || { courses: [], cohorts: [] });
-      setTrashUsers(usersRes || []);
-    } catch (err) {
-      console.error("Error al cargar papelera", err);
-      toast.error("No se pudo cargar los elementos de la papelera");
-    } finally {
-      setLoading(false);
-    }
+  const academic = useRemoteData<{ courses: Course[]; cohorts: Cohort[] }>("/academic/trash");
+  const users = useRemoteData<User[]>("/users/trash");
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const date = (value?: string | null) => value ? new Date(value).toLocaleDateString("es-PE") : "Sin fecha registrada";
+  const restore = async (type: string, id: string, label: string) => {
+    if (!(await confirm({ title: `Restaurar ${label}`, description: "El registro volverá a estar disponible en su módulo. Revisa sus fechas, estado y relaciones después de recuperarlo.", confirmLabel: "Restaurar registro", destructive: false }))) return;
+    setRestoring(id);
+    try { await fetchApi(`${type}/${id}/restore`, { method: "PATCH" }); toast.success("Registro restaurado"); await Promise.all([academic.reload(), users.reload()]); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "No se pudo restaurar el registro"); }
+    finally { setRestoring(null); }
   };
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      loadTrashData();
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  const handleRestoreCourse = async (id: string, name: string) => {
-    setRestoringId(id);
-    try {
-      await fetchApi(`/academic/courses/${id}/restore`, { method: "PATCH" });
-      toast.success(`Curso "${name}" restaurado correctamente`);
-      loadTrashData();
-    } catch  {
-      toast.error("Error al restaurar el curso");
-    } finally {
-      setRestoringId(null);
-    }
-  };
-
-  const handleRestoreCohort = async (id: string, name: string) => {
-    setRestoringId(id);
-    try {
-      await fetchApi(`/academic/cohorts/${id}/restore`, { method: "PATCH" });
-      toast.success(`Cohorte "${name}" restaurada correctamente`);
-      loadTrashData();
-    } catch  {
-      toast.error("Error al restaurar la cohorte");
-    } finally {
-      setRestoringId(null);
-    }
-  };
-
-  const handleRestoreUser = async (id: string, email: string) => {
-    setRestoringId(id);
-    try {
-      await fetchApi(`/users/${id}/restore`, { method: "PATCH" });
-      toast.success(`Usuario ${email} restaurado correctamente`);
-      loadTrashData();
-    } catch  {
-      toast.error("Error al restaurar el usuario");
-    } finally {
-      setRestoringId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
-      {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/50 pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-primary font-semibold mb-1">
-            <ArchiveRestore className="h-6 w-6 text-amber-500" />
-            <span className="text-sm uppercase tracking-wider text-amber-500">Respaldo y Seguridad</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Papelera de Reciclaje</h1>
-          <p className="text-muted-foreground mt-1">
-            Los elementos eliminados se conservan protegidos aquí. Puedes restaurarlos en cualquier momento.
-          </p>
-        </div>
-        <Button onClick={loadTrashData} variant="outline" className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
-      </div>
-
-      {/* Selector de Pestañas */}
-      <div className="flex border-b border-border/50 gap-2">
-        <button
-          onClick={() => setActiveTab("courses")}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === "courses"
-              ? "border-primary text-primary bg-primary/5 rounded-t-lg"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <BookOpen className="h-4 w-4" />
-          Cursos Eliminados ({trashData.courses?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("cohorts")}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === "cohorts"
-              ? "border-primary text-primary bg-primary/5 rounded-t-lg"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Calendar className="h-4 w-4" />
-          Cohortes Eliminadas ({trashData.cohorts?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === "users"
-              ? "border-primary text-primary bg-primary/5 rounded-t-lg"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Users className="h-4 w-4" />
-          Usuarios Archivados ({trashUsers?.length || 0})
-        </button>
-      </div>
-
-      {/* Contenido de la Papelera */}
-      {loading ? (
-        <div className="flex justify-center p-16">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div>
-          {/* TAB CURSOS */}
-          {activeTab === "courses" && (
-            <div className="space-y-4">
-              {trashData.courses.length === 0 ? (
-                <div className="text-center p-12 border rounded-xl bg-card glass">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
-                  <h3 className="text-lg font-bold">No hay cursos en la papelera</h3>
-                  <p className="text-sm text-muted-foreground">Todos los cursos creados están activos.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {trashData.courses.map((course) => (
-                    <div
-                      key={course.id}
-                      className="bg-card border border-border/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                            {course.code}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Eliminado: {new Date(course.deletedAt ?? 0).toLocaleDateString("es-ES")}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-lg text-foreground">{course.name}</h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                          {course.description || "Sin descripción"}
-                        </p>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-border/40 flex justify-between items-center">
-                        <span className="text-xs text-slate-500 font-mono">ID: {course.id.slice(0, 8)}...</span>
-                        <Button
-                          size="sm"
-                          onClick={() => handleRestoreCourse(course.id, course.name)}
-                          disabled={restoringId === course.id}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                        >
-                          {restoringId === course.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <ArchiveRestore className="h-3.5 w-3.5" />
-                          )}
-                          Restaurar Curso
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB COHORTES */}
-          {activeTab === "cohorts" && (
-            <div className="space-y-4">
-              {trashData.cohorts.length === 0 ? (
-                <div className="text-center p-12 border rounded-xl bg-card glass">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
-                  <h3 className="text-lg font-bold">No hay cohortes en la papelera</h3>
-                  <p className="text-sm text-muted-foreground">Todas las cohortes creadas están activas.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {trashData.cohorts.map((cohort) => (
-                    <div
-                      key={cohort.id}
-                      className="bg-card border border-border/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                            {cohort.courseName || "Curso"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Eliminada: {new Date(cohort.deletedAt ?? 0).toLocaleDateString("es-ES")}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-lg text-foreground">{cohort.name}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Alumnos matriculados protegidos: {cohort.enrollmentCount || 0}
-                        </p>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-border/40 flex justify-between items-center">
-                        <span className="text-xs text-slate-500 font-mono">ID: {cohort.id.slice(0, 8)}...</span>
-                        <Button
-                          size="sm"
-                          onClick={() => handleRestoreCohort(cohort.id, cohort.name)}
-                          disabled={restoringId === cohort.id}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                        >
-                          {restoringId === cohort.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <ArchiveRestore className="h-3.5 w-3.5" />
-                          )}
-                          Restaurar Cohorte
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB USUARIOS */}
-          {activeTab === "users" && (
-            <div className="space-y-4">
-              {trashUsers.length === 0 ? (
-                <div className="text-center p-12 border rounded-xl bg-card glass">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
-                  <h3 className="text-lg font-bold">No hay usuarios en la papelera</h3>
-                  <p className="text-sm text-muted-foreground">No existen cuentas inactivas o eliminadas.</p>
-                </div>
-              ) : (
-                <div className="bg-card rounded-xl border border-border/50 overflow-hidden glass">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-muted/50 text-muted-foreground">
-                        <tr>
-                          <th className="px-6 py-3 font-medium">Usuario</th>
-                          <th className="px-6 py-3 font-medium">Email</th>
-                          <th className="px-6 py-3 font-medium">Rol</th>
-                          <th className="px-6 py-3 font-medium">Fecha Eliminación</th>
-                          <th className="px-6 py-3 font-medium text-right">Acción</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/50">
-                        {trashUsers.map((u) => (
-                          <tr key={u.id} className="hover:bg-muted/20 transition-colors">
-                            <td className="px-6 py-4 font-semibold text-foreground">
-                              {u.firstName} {u.lastName}
-                            </td>
-                            <td className="px-6 py-4 font-mono text-muted-foreground">{u.email}</td>
-                            <td className="px-6 py-4">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                                {u.roles?.join(", ") || "Usuario"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-xs text-muted-foreground">
-                              {u.deletedAt ? new Date(u.deletedAt).toLocaleDateString("es-ES") : "Inactivo"}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <Button
-                                size="sm"
-                                onClick={() => handleRestoreUser(u.id, u.email)}
-                                disabled={restoringId === u.id}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                              >
-                                {restoringId === u.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <ArchiveRestore className="h-3.5 w-3.5" />
-                                )}
-                                Restaurar Cuenta
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  const action = (type: string, id: string, label: string) => <Button size="sm" variant="outline" disabled={restoring !== null} onClick={() => void restore(type, id, label)}>{restoring === id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArchiveRestore className="mr-2 h-4 w-4" />}Restaurar</Button>;
+  return <div className="space-y-6">
+    <PageHeader eyebrow="Respaldo y recuperación" title="Papelera de reciclaje" description="Busca y recupera cursos, cohortes y cuentas eliminadas." actions={<Button variant="outline" disabled={academic.loading || users.loading} onClick={() => { void academic.reload(); void users.reload(); }}><RefreshCw className="mr-2 h-4 w-4" />Actualizar</Button>} />
+    <SummaryStrip items={[{ label: "Cursos eliminados", value: academic.data?.courses.length ?? "—" }, { label: "Cohortes eliminadas", value: academic.data?.cohorts.length ?? "—" }, { label: "Usuarios eliminados", value: users.data?.length ?? "—" }]} />
+    <p className="workspace-note">Restaurar recupera el registro conservado. Verifica la publicación del curso, las fechas de la cohorte o el acceso del usuario desde el módulo correspondiente.</p>
+    <WorkspaceTabs label="Tipos de registros eliminados" tabs={[
+      { id: "courses", label: "Cursos", count: academic.data?.courses.length, content: <DataSection {...academic} label="cursos eliminados"><DataTable<Course> data={academic.data?.courses || []} searchPlaceholder="Buscar cursos eliminados" emptyMessage="No hay cursos en la papelera." columns={[{ key: "name", header: "Curso", render: course => <div><p className="font-semibold">{course.name}</p><p className="text-xs text-muted-foreground">{course.code}</p></div> }, { key: "deletedAt", header: "Eliminado", render: course => date(course.deletedAt) }, { key: "actions", header: "Acción", render: course => action("/academic/courses", course.id, course.name) }]} /></DataSection> },
+      { id: "cohorts", label: "Cohortes", count: academic.data?.cohorts.length, content: <DataSection {...academic} label="cohortes eliminadas"><DataTable<Cohort> data={academic.data?.cohorts || []} searchPlaceholder="Buscar cohortes eliminadas" emptyMessage="No hay cohortes en la papelera." columns={[{ key: "name", header: "Cohorte", render: cohort => <div><p className="font-semibold">{cohort.name}</p><p className="text-xs text-muted-foreground">{cohort.course?.name}</p></div> }, { key: "deletedAt", header: "Eliminada", render: cohort => date(cohort.deletedAt) }, { key: "actions", header: "Acción", render: cohort => action("/academic/cohorts", cohort.id, cohort.name) }]} /></DataSection> },
+      { id: "users", label: "Usuarios", count: users.data?.length, content: <DataSection {...users} label="usuarios eliminados"><DataTable<User> data={users.data || []} searchPlaceholder="Buscar usuarios eliminados" emptyMessage="No hay usuarios en la papelera." columns={[{ key: "firstName", header: "Usuario", render: user => <div><p className="font-semibold">{user.firstName} {user.lastName}</p><p className="text-xs text-muted-foreground">{user.email}</p></div> }, { key: "roles", header: "Roles", render: user => user.roles?.map(role => typeof role === "string" ? role : role.name).join(", ") }, { key: "deletedAt", header: "Eliminado", render: user => date(user.deletedAt) }, { key: "actions", header: "Acción", render: user => action("/users", user.id, user.email) }]} /></DataSection> },
+    ]} />
+  </div>;
 }

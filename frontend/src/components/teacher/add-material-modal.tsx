@@ -1,11 +1,18 @@
 "use client";
 
+import { Modal } from "@/components/ui/modal";
 import { useState } from "react";
 import { fetchApi, getErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, X, Upload, Link2 } from "lucide-react";
+
+const MATERIAL_EXTENSIONS = [
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt",
+  "mp4", "mov", "avi", "webm", "zip", "jpg", "jpeg", "png", "gif", "webp", "svg",
+];
+const MAX_MATERIAL_SIZE = 100 * 1024 * 1024;
 
 export function AddMaterialModal({
   isOpen,
@@ -83,9 +90,10 @@ export function AddMaterialModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+    <Modal title="Agregar material" onClose={() => { if (!loading) onClose(); }}>
+
       <Card className="w-full max-w-lg bg-card border-border shadow-2xl relative rounded-2xl">
-        <button
+        <button aria-label="Cerrar ventana"
           onClick={onClose}
           className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted"
         >
@@ -97,7 +105,7 @@ export function AddMaterialModal({
             Añadir Contenido / Material al Curso
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Publica documentos (PDF, Word, PPT, Excel), archivos multimedia o enlaces de video.
+            Publica PDF, Word, PowerPoint, Excel, imágenes, videos o enlaces. Máximo 100 MB por archivo.
           </p>
         </CardHeader>
 
@@ -132,11 +140,11 @@ export function AddMaterialModal({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-foreground block mb-1">
+              <label htmlFor="teacher-add-material-modal-0" className="text-xs font-bold text-foreground block mb-1">
                 Título del Contenido
               </label>
               <Input
-                required
+ id="teacher-add-material-modal-0"                required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ej. Lectura Principal Semana 2 — Guía PDF"
@@ -145,11 +153,11 @@ export function AddMaterialModal({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-foreground block mb-1">
+              <label htmlFor="teacher-add-material-modal-1" className="text-xs font-bold text-foreground block mb-1">
                 Categoría de Contenido
               </label>
               <select
-                value={type}
+ id="teacher-add-material-modal-1"                value={type}
                 onChange={(e) => setType(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 outline-none"
               >
@@ -169,9 +177,24 @@ export function AddMaterialModal({
                   <input
                     type="file"
                     required
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.mp4,.mov,.avi,.webm,.zip,.jpg,.jpeg,.png,.gif,.webp,.svg"
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         const file = e.target.files[0];
+                        const extension = file.name.split(".").pop()?.toLowerCase() || "";
+                        if (!MATERIAL_EXTENSIONS.includes(extension)) {
+                          setSelectedFile(null);
+                          setError("Este tipo de archivo no está permitido. Usa PDF, Word, PowerPoint, Excel, imagen, video o ZIP.");
+                          e.currentTarget.value = "";
+                          return;
+                        }
+                        if (file.size > MAX_MATERIAL_SIZE) {
+                          setSelectedFile(null);
+                          setError("El archivo supera el límite de 100 MB.");
+                          e.currentTarget.value = "";
+                          return;
+                        }
+                        setError("");
                         setSelectedFile(file);
                         if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ""));
                       }
@@ -187,11 +210,11 @@ export function AddMaterialModal({
               </div>
             ) : (
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
+                <label htmlFor="teacher-add-material-modal-3" className="text-xs font-bold text-foreground block mb-1">
                   URL del Enlace o Video
                 </label>
                 <Input
-                  required
+ id="teacher-add-material-modal-3"                  required
                   value={fileUrl}
                   onChange={(e) => setFileUrl(e.target.value)}
                   placeholder="Ej. https://www.youtube.com/watch?v=... o https://drive.google.com/..."
@@ -218,6 +241,6 @@ export function AddMaterialModal({
           </form>
         </CardContent>
       </Card>
-    </div>
+    </Modal>
   );
 }

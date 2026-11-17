@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import type { IUserRepository } from '../../domain/repositories/user.repository.interface';
 import { USER_REPOSITORY } from '../../domain/repositories/user.repository.interface';
 import { LoginResponseDto } from '../dtos/login-response.dto';
+import { TwoFactorService } from '../../infrastructure/two-factor.service';
 
 /**
  * Payload que se firmará dentro del JWT.
@@ -41,6 +42,7 @@ export class LoginUseCase {
     @Inject(USER_REPOSITORY)
     private readonly userRepository: IUserRepository,
     private readonly jwtService: JwtService,
+    private readonly twoFactorService: TwoFactorService,
   ) {}
 
   /**
@@ -51,7 +53,11 @@ export class LoginUseCase {
    * @returns LoginResponseDto con el token JWT y los permisos
    * @throws UnauthorizedException si las credenciales son inválidas
    */
-  async execute(email: string, password: string): Promise<LoginResponseDto> {
+  async execute(
+    email: string,
+    password: string,
+    otpCode?: string,
+  ): Promise<LoginResponseDto> {
     // 1. Buscar usuario por email (soft-delete aware)
     const user = await this.userRepository.findByEmail(email);
 
@@ -73,6 +79,28 @@ export class LoginUseCase {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    const isAdmin = user.roles.some((role) => role.name === 'ADMIN');
+    if (isAdmin && user.twoFactorEnabled) {
+      if (!otpCode) {
+        throw new UnauthorizedException({
+          message: 'Ingresa el código de tu aplicación autenticadora',
+          code: 'TWO_FACTOR_REQUIRED',
+        });
+      }
+      if (
+        !user.twoFactorSecret ||
+        !this.twoFactorService.verifyStoredCode(user.twoFactorSecret, otpCode)
+      ) {
+        throw new UnauthorizedException({
+          message: 'El código 2FA no es válido o ya expiró',
+          code: 'TWO_FACTOR_INVALID',
+        });
+      }
+      void this.twoFactorService
+        .upgradeLegacySecret(user.id, user.twoFactorSecret)
+        .catch(() => undefined);
+    }
+
     // 4. Construir payload JWT con roles y permisos
     const roleNames = user.roles.map((r) => r.name);
     const permissions = user.flatPermissions;
@@ -89,9 +117,9 @@ export class LoginUseCase {
     // 5. Registrar último login (fire-and-forget, no bloquea la respuesta)
     this.userRepository
       .updateLastLogin(user.id, new Date())
-      .catch((err) =>
+      .catch((err: unknown) =>
         console.error(
-          `[LoginUseCase] Error actualizando lastLoginAt: ${err.message}`,
+          `[LoginUseCase] Error actualizando lastLoginAt: ${err instanceof Error ? err.message : String(err)}`,
         ),
       );
 

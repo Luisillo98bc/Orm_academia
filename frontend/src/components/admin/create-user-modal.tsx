@@ -1,3 +1,4 @@
+import { Modal } from "@/components/ui/modal";
 import { useState } from "react";
 import { fetchApi, getErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -51,9 +52,10 @@ export function CreateUserModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <Modal title="Registrar usuario" onClose={() => { if (!loading) onClose(); }}>
+
       <Card className="w-full max-w-md bg-background shadow-2xl border-border relative animate-scale-in">
-        <button onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+        <button aria-label="Cerrar ventana" onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
           <X className="h-5 w-5" />
         </button>
         <CardHeader>
@@ -63,27 +65,27 @@ export function CreateUserModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm">Nombre</label>
-                <Input required value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
+                <label htmlFor="admin-create-user-modal-0" className="text-sm">Nombre</label>
+                <Input id="admin-create-user-modal-0" required value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <label className="text-sm">Apellido</label>
-                <Input required value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
+                <label htmlFor="admin-create-user-modal-1" className="text-sm">Apellido</label>
+                <Input id="admin-create-user-modal-1" required value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm">Email</label>
-              <Input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+              <label htmlFor="admin-create-user-modal-2" className="text-sm">Email</label>
+              <Input id="admin-create-user-modal-2" type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm">Contraseña</label>
-              <Input type="password" required minLength={8} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
+              <label htmlFor="admin-create-user-modal-3" className="text-sm">Contraseña</label>
+              <Input id="admin-create-user-modal-3" type="password" required minLength={8} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm">Rol</label>
-              <select 
+              <label htmlFor="admin-create-user-modal-4" className="text-sm">Rol</label>
+              <select id="admin-create-user-modal-4"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={formData.role} 
+                value={formData.role}
                 onChange={(e) => setFormData({...formData, role: e.target.value})}
               >
                 <option value="ESTUDIANTE">Estudiante</option>
@@ -92,7 +94,7 @@ export function CreateUserModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
                 <option value="RRHH">Recursos Humanos</option>
               </select>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <div className="pt-4 flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
               <Button type="submit" disabled={loading}>
@@ -103,6 +105,6 @@ export function CreateUserModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
           </form>
         </CardContent>
       </Card>
-    </div>
+    </Modal>
   );
 }

@@ -1,11 +1,21 @@
 "use client";
 
+import { Modal } from "@/components/ui/modal";
 import { useState, useEffect, useEffectEvent } from "react";
 import { fetchApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, X, CheckCircle2, XCircle, FileSpreadsheet, Printer } from "lucide-react";
+import {
+  Loader2,
+  X,
+  CheckCircle2,
+  XCircle,
+  FileSpreadsheet,
+  Printer,
+  Award,
+} from "lucide-react";
 import type { Cohort, Deliverable, Evaluation, User } from "@/types/domain";
+import { toast } from "sonner";
 
 interface GradeSummaryCell {
   score: number | null;
@@ -40,6 +50,9 @@ export function GradesSummaryModal({
 }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GradesSummaryData | null>(null);
+  const [issuingCertificate, setIssuingCertificate] = useState<string | null>(
+    null,
+  );
 
   const loadGradesSummary = async () => {
     setLoading(true);
@@ -49,17 +62,27 @@ export function GradesSummaryModal({
         res = await fetchApi(`/academic/cohorts/${cohort.id}/grades-summary`);
       } catch {
         try {
-          res = await fetchApi(`/evaluations/cohort/${cohort.id}/grades-summary`);
+          res = await fetchApi(
+            `/evaluations/cohort/${cohort.id}/grades-summary`,
+          );
         } catch {
           // Fallback resiliente en frontend si el proceso backend está desactualizado
           const [studentsList, evaluationsRaw] = await Promise.all([
-            fetchApi(`/academic/cohorts/${cohort.id}/students`).catch(() => cohort.students || []),
+            fetchApi(`/academic/cohorts/${cohort.id}/students`).catch(
+              () => cohort.students || [],
+            ),
             fetchApi(`/evaluations/cohort/${cohort.id}`).catch(() => []),
           ]);
 
-          const evaluations = Array.isArray(evaluationsRaw) ? evaluationsRaw : evaluationsRaw?.data || [];
+          const evaluations = Array.isArray(evaluationsRaw)
+            ? evaluationsRaw
+            : evaluationsRaw?.data || [];
           const students = Array.isArray(studentsList) ? studentsList : [];
-          const totalWeight = evaluations.reduce((acc: number, evaluation: Evaluation) => acc + (evaluation.weight || 0), 0);
+          const totalWeight = evaluations.reduce(
+            (acc: number, evaluation: Evaluation) =>
+              acc + (evaluation.weight || 0),
+            0,
+          );
 
           const studentsSummary = students.map((student: User) => {
             let weightedScore = 0;
@@ -67,11 +90,14 @@ export function GradesSummaryModal({
 
             evaluations.forEach((ev: Evaluation) => {
               const deliverables = ev.deliverables || [];
-              const deliverable = deliverables.find((item: Deliverable) => item.studentId === student.id);
+              const deliverable = deliverables.find(
+                (item: Deliverable) => item.studentId === student.id,
+              );
               const grade = deliverable?.grade;
 
               if (grade && grade.score !== undefined && grade.score !== null) {
-                const normScore = (grade.score / (ev.maxScore || 20)) * (ev.weight || 0);
+                const normScore =
+                  (grade.score / (ev.maxScore || 20)) * (ev.weight || 0);
                 weightedScore += normScore;
                 gradesMap[ev.id] = {
                   score: grade.score,
@@ -93,7 +119,10 @@ export function GradesSummaryModal({
               }
             });
 
-            const finalGrade = totalWeight > 0 ? Math.round(((weightedScore / totalWeight) * 20) * 100) / 100 : 0;
+            const finalGrade =
+              totalWeight > 0
+                ? Math.round((weightedScore / totalWeight) * 20 * 100) / 100
+                : 0;
 
             return {
               student,
@@ -121,12 +150,38 @@ export function GradesSummaryModal({
     }
   };
 
-    const loadGradesSummaryEffect = useEffectEvent(loadGradesSummary);
+  const issueCertificate = async (
+    studentId: string,
+    certificateType: "GRADES" | "COMPLETION",
+  ) => {
+    setIssuingCertificate(`${studentId}:${certificateType}`);
+    try {
+      await fetchApi(`/certificates/cohort/${cohort.id}/student/${studentId}`, {
+        method: "POST",
+        body: JSON.stringify({ certificateType }),
+      });
+      toast.success(
+        certificateType === "GRADES"
+          ? "Certificado de notas emitido correctamente."
+          : "Certificado de finalización emitido correctamente.",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo emitir el certificado.",
+      );
+    } finally {
+      setIssuingCertificate(null);
+    }
+  };
+
+  const loadGradesSummaryEffect = useEffectEvent(loadGradesSummary);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       if (isOpen && cohort?.id) {
-      loadGradesSummaryEffect();
+        loadGradesSummaryEffect();
       }
     }, 0);
     return () => window.clearTimeout(timeoutId);
@@ -139,14 +194,16 @@ export function GradesSummaryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+    <Modal title="Resumen de notas" onClose={() => { if (!loading) onClose(); }}>
+
       {/* Estilos CSS Exclusivos para Impresión de Acta de Notas */}
       <style jsx global>{`
         @media print {
           body * {
             visibility: hidden;
           }
-          #printable-grades-summary, #printable-grades-summary * {
+          #printable-grades-summary,
+          #printable-grades-summary * {
             visibility: visible;
           }
           #printable-grades-summary {
@@ -165,7 +222,7 @@ export function GradesSummaryModal({
       `}</style>
 
       <Card className="w-full max-w-5xl bg-card border-border shadow-2xl relative rounded-2xl max-h-[90vh] flex flex-col">
-        <button
+        <button aria-label="Cerrar ventana"
           onClick={onClose}
           className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted no-print"
         >
@@ -193,15 +250,23 @@ export function GradesSummaryModal({
           </p>
         </CardHeader>
 
-        <CardContent className="pt-4 flex-1 overflow-y-auto space-y-4" id="printable-grades-summary">
+        <CardContent
+          className="pt-4 flex-1 overflow-y-auto space-y-4"
+          id="printable-grades-summary"
+        >
           {/* Cabecera Oficial de Impresión */}
           <div className="hidden print:block mb-6 text-center border-b pb-4">
-            <h1 className="text-2xl font-black uppercase tracking-wider">ACADEMIA VIRTUAL — ACTA CONSOLIDADA DE NOTAS</h1>
-            <p className="text-sm font-semibold text-gray-700 mt-1">
-              Curso: <strong>{cohort?.course?.name}</strong> | Cohorte: <strong>{cohort?.name}</strong>
+            <h1 className="text-2xl font-black uppercase tracking-wider">
+              ACADEMIA VIRTUAL — ACTA CONSOLIDADA DE NOTAS
+            </h1>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              Curso: <strong>{cohort?.course?.name}</strong> | Cohorte:{" "}
+              <strong>{cohort?.name}</strong>
             </p>
-            <p className="text-xs text-gray-600">
-              Fecha de Emisión: <strong>{new Date().toLocaleDateString("es-ES")}</strong> | Escala Evaluativa: <strong>Vigesimal (0 - 20)</strong>
+            <p className="text-xs text-muted-foreground">
+              Fecha de Emisión:{" "}
+              <strong>{new Date().toLocaleDateString("es-ES")}</strong> | Escala
+              Evaluativa: <strong>Vigesimal (0 - 20)</strong>
             </p>
           </div>
 
@@ -214,31 +279,51 @@ export function GradesSummaryModal({
             </div>
           ) : !data || data.studentsSummary?.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground text-sm">
-              No hay estudiantes matriculados o evaluaciones registradas en esta cohorte.
+              No hay estudiantes matriculados o evaluaciones registradas en esta
+              cohorte.
             </div>
           ) : (
             <div className="space-y-4">
               {/* Summary KPIs */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
                 <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20">
-                  <p className="text-xs text-muted-foreground font-semibold">Total Alumnos</p>
-                  <p className="text-2xl font-black text-foreground">{data.studentsSummary.length}</p>
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    Total Alumnos
+                  </p>
+                  <p className="text-2xl font-black text-foreground">
+                    {data.studentsSummary.length}
+                  </p>
                 </div>
                 <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Aprobados (≥13)</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    Aprobados (≥13)
+                  </p>
                   <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                    {data.studentsSummary.filter((student) => student.isPassed).length}
+                    {
+                      data.studentsSummary.filter((student) => student.isPassed)
+                        .length
+                    }
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-500/5">
-                  <p className="text-xs text-red-600 dark:text-red-400 font-semibold">Desaprobados (&lt;13)</p>
+                  <p className="text-xs text-red-600 dark:text-red-400 font-semibold">
+                    Desaprobados (&lt;13)
+                  </p>
                   <p className="text-2xl font-black text-red-600 dark:text-red-400">
-                    {data.studentsSummary.filter((student) => !student.isPassed).length}
+                    {
+                      data.studentsSummary.filter(
+                        (student) => !student.isPassed,
+                      ).length
+                    }
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20">
-                  <p className="text-xs text-muted-foreground font-semibold">Tareas Publicadas</p>
-                  <p className="text-2xl font-black text-foreground">{data.evaluations.length}</p>
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    Tareas Publicadas
+                  </p>
+                  <p className="text-2xl font-black text-foreground">
+                    {data.evaluations.length}
+                  </p>
                 </div>
               </div>
 
@@ -251,7 +336,11 @@ export function GradesSummaryModal({
                         <th className="p-3 min-w-[180px]">Estudiante</th>
                         <th className="p-3 text-center">Asistencia</th>
                         {data.evaluations.map((ev: Evaluation) => (
-                          <th key={ev.id} className="p-3 text-center min-w-[100px]" title={ev.title}>
+                          <th
+                            key={ev.id}
+                            className="p-3 text-center min-w-[100px]"
+                            title={ev.title}
+                          >
                             <div>{ev.title}</div>
                             <span className="text-[10px] text-muted-foreground normal-case font-normal">
                               ({ev.weight}%)
@@ -262,11 +351,17 @@ export function GradesSummaryModal({
                           Promedio Final
                         </th>
                         <th className="p-3 text-center">Estado</th>
+                        <th className="p-3 text-center no-print">
+                          Certificados
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
                       {data.studentsSummary.map((item: StudentGradeSummary) => (
-                        <tr key={item.student.id} className="hover:bg-muted/30 transition-colors">
+                        <tr
+                          key={item.student.id}
+                          className="hover:bg-muted/30 transition-colors"
+                        >
                           <td className="p-3 font-semibold text-foreground">
                             <div>
                               {item.student.firstName} {item.student.lastName}
@@ -292,7 +387,10 @@ export function GradesSummaryModal({
                             const score = gradeInfo?.score;
 
                             return (
-                              <td key={ev.id} className="p-3 text-center font-medium">
+                              <td
+                                key={ev.id}
+                                className="p-3 text-center font-medium"
+                              >
                                 {score !== null && score !== undefined ? (
                                   <span className="font-bold text-foreground">
                                     {score} / {ev.maxScore || 20}
@@ -325,6 +423,61 @@ export function GradesSummaryModal({
                               </span>
                             )}
                           </td>
+                          <td className="p-3 text-center no-print">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              disabled={
+                                !item.isPassed || issuingCertificate !== null
+                              }
+                              onClick={() =>
+                                void issueCertificate(item.student.id, "GRADES")
+                              }
+                              title={
+                                !item.isPassed
+                                  ? "Disponible para estudiantes aprobados"
+                                  : "Emitir certificado de notas"
+                              }
+                            >
+                              {issuingCertificate ===
+                              `${item.student.id}:GRADES` ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Award className="h-3 w-3" />
+                              )}
+                              Notas
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              disabled={
+                                !item.isPassed || issuingCertificate !== null
+                              }
+                              onClick={() =>
+                                void issueCertificate(
+                                  item.student.id,
+                                  "COMPLETION",
+                                )
+                              }
+                              title={
+                                !item.isPassed
+                                  ? "Disponible para estudiantes aprobados"
+                                  : "Emitir certificado de finalización"
+                              }
+                            >
+                              {issuingCertificate ===
+                              `${item.student.id}:COMPLETION` ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-3 w-3" />
+                              )}
+                              Curso
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -345,6 +498,6 @@ export function GradesSummaryModal({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </Modal>
   );
 }

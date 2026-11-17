@@ -17,6 +17,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const requestId = String(response.getHeader('X-Request-Id') ?? 'unknown');
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | object = 'Error interno del servidor';
@@ -27,9 +28,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const res = exception.getResponse();
 
       if (typeof res === 'object' && res !== null) {
-        const resObj = res as Record<string, any>;
-        message = resObj.message || exception.message;
-        error = resObj.error || exception.name;
+        const resObj = res as Record<string, unknown>;
+        const responseMessage = resObj.message;
+        const responseError = resObj.error;
+        message =
+          typeof responseMessage === 'string' || Array.isArray(responseMessage)
+            ? responseMessage
+            : exception.message;
+        error =
+          typeof responseError === 'string' ? responseError : exception.name;
       } else {
         message = res;
         error = exception.name;
@@ -68,10 +75,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       this.logger.error(
-        `Error no controlado: ${exception.message}`,
+        `[${requestId}] Error no controlado: ${exception.message}`,
         exception.stack,
       );
-      message = exception.message;
+      message = 'Error interno del servidor';
     }
 
     // Formatear mensaje si es un arreglo (class-validator)
@@ -85,6 +92,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId,
     });
   }
 }

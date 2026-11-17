@@ -10,6 +10,14 @@ export interface User {
   lastName: string;
   profilePicture?: string | null;
   profileImage?: string | null;
+  dni?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  district?: string | null;
+  province?: string | null;
+  department?: string | null;
+  position?: string | null;
+  profileComplete?: boolean;
   bio?: string | null;
   isActive?: boolean;
   roles?: Array<string | Role>;
@@ -38,9 +46,12 @@ export interface Course {
 export interface Cohort {
   id: string;
   courseId: string;
-  name: string;
-  googleMeetLink?: string | null;
+    name: string;
+    modality?: string | null;
+    schedule?: string | null;
+    googleMeetLink?: string | null;
   price: Money;
+  installments?: number;
   discountPercentage: number;
   discountEndsAt?: string | null;
   imageUrl?: string | null;
@@ -52,6 +63,7 @@ export interface Cohort {
   startDate: string;
   endDate: string;
   isActive: boolean;
+  createdAt?: string;
   deletedAt?: string | null;
   course: Course;
   teachers?: User[];
@@ -71,6 +83,7 @@ export interface Enrollment {
   status: string;
   enrolledAt?: string;
   completedAt?: string | null;
+  reservationExpiresAt?: string | null;
   user?: User;
   cohort?: Cohort;
   payment?: Payment | null;
@@ -87,6 +100,8 @@ export interface Material {
 }
 
 export interface ClassSession {
+  durationMinutes?: number;
+  timeZone?: string;
   id: string;
   moduleId: string;
   title: string;
@@ -133,6 +148,8 @@ export interface Deliverable {
 }
 
 export interface Evaluation {
+  kind?: 'ASSIGNMENT' | 'QUIZ';
+  rubric?: { title: string; points: number }[];
   id: string;
   cohortId: string;
   moduleId?: string | null;
@@ -157,14 +174,48 @@ export interface Certificate {
 
 export interface Payment {
   id: string;
+  chargeAttemptKey?: string | null;
+  chargeStartedAt?: string | null;
+  operationNumber?: string;
   enrollmentId: string;
   amount: Money;
   method: string;
   status: string;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  paidInstallments?: number;
+  nextDueDate?: string | null;
+  installmentHistory?: Array<{
+    installmentNumber: number;
+    amount: string;
+    method: string;
+    voucherUrl?: string | null;
+    validatedAt?: string;
+    status: string;
+    operationNumber?: string;
+  }> | null;
   voucherUrl?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
   validatedAt?: string | null;
   createdAt: string;
   enrollment?: Enrollment;
+}
+
+export interface LearningCourseOverview {
+  cohortId: string;
+  cohortName: string;
+  course: Course;
+  status: string;
+  progressPercent: number;
+  completedItems: number;
+  totalItems: number;
+  continueModuleId?: string | null;
+  completionEligible?: boolean;
+  completionCriteria?: {
+    courseEnded: boolean;
+    allRequiredItemsCompleted: boolean;
+  };
 }
 
 export interface Contract {
@@ -175,8 +226,16 @@ export interface Contract {
   endDate?: string | null;
   agreedSalary: Money;
   documentUrl?: string | null;
+  status?: string;
   isActive: boolean;
   observations?: string | null;
+  sentAt?: string | null;
+  signedAt?: string | null;
+  signedBy?: string | null;
+  signatureName?: string | null;
+  rejectionReason?: string | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
 }
 
 export interface Payroll {
@@ -211,6 +270,9 @@ export interface Worker {
 export interface AttendanceRecord {
   id?: string;
   studentId: string;
+  sessionId?: string | null;
+  sessionTitle?: string | null;
+  moduleTitle?: string | null;
   date: string;
   isPresent: boolean;
   isExcused: boolean;
@@ -233,6 +295,7 @@ export interface StudentProgress {
   completedModules: number;
   modules: number;
   grades: ProgressGrade[];
+  materialProgress?: Array<{ materialId: string; completed: boolean }>;
   attendance: {
     rate: number;
     present?: number;
@@ -249,9 +312,11 @@ export interface Announcement {
   targetAudience?: string;
   imageUrl?: string | null;
   ctaText?: string | null;
-  ctaUrl?: string | null;
-  showOnLanding?: boolean;
-  isActive?: boolean;
+    ctaUrl?: string | null;
+    showOnLanding?: boolean;
+    landingStartsAt?: string | null;
+    landingEndsAt?: string | null;
+    isActive?: boolean;
   createdAt: string;
   author?: User;
 }
@@ -281,11 +346,44 @@ export interface ForumMessage {
 }
 
 export interface PlatformSettings {
+  academyName?: string;
+  legalName?: string | null;
+  taxId?: string | null;
+  tagline?: string | null;
+  description?: string | null;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
+  primaryColor?: string | null;
   whatsappNumber?: string | null;
   supportEmail?: string | null;
+  salesEmail?: string | null;
+  address?: string | null;
   facebookUrl?: string | null;
   instagramUrl?: string | null;
+  linkedinUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  xUrl?: string | null;
+  heroEyebrow?: string | null;
+  heroTitle?: string | null;
+  heroSubtitle?: string | null;
+  termsUrl?: string | null;
+  privacyUrl?: string | null;
+  certificateTemplate?: CertificateTemplateSettings | null;
+}
+
+export type PublicPlatformSettings = Omit<
+  PlatformSettings,
+  'taxId' | 'salesEmail' | 'address' | 'certificateTemplate'
+>;
+
+export interface CertificateTemplateSettings {
+  version: string;
+  primaryColor: string;
+  academyLabel: string;
+  completionTitle: string;
+  gradesTitle: string;
+  signatureLabel: string;
 }
 
 export interface ApiListResponse<T> {

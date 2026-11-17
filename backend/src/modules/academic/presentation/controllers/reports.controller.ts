@@ -1,4 +1,14 @@
-import { Controller, Get, Query, UseGuards, Res, Header } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Query,
+  UseGuards,
+  Res,
+  Post,
+  Param,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -9,32 +19,56 @@ import { JwtAuthGuard } from '../../../auth/infrastructure/guards/jwt-auth.guard
 import { RolesGuard } from '../../../auth/infrastructure/guards/roles.guard';
 import { Roles } from '../../../auth/infrastructure/guards/roles.decorator';
 import { ReportsService } from '../../application/services/reports.service';
+import { Permissions } from '../../../auth/infrastructure/guards/permissions.decorator';
+import { PermissionsGuard } from '../../../auth/infrastructure/guards/permissions.guard';
 import * as express from 'express';
+import { EnrollmentsQueryDto } from '../../application/dtos/enrollments-query.dto';
+import { CurrentUser } from '../../../auth/infrastructure/strategies/current-user.decorator';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
 @Controller('reports')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles('ADMIN') // Solo ADMIN puede acceder a los reportes
+@Permissions('reports:read')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('summary')
   @ApiOperation({ summary: 'Obtener KPIs generales' })
-  getSummary() {
-    return this.reportsService.getSummary();
+  getSummary(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.reportsService.getSummary(startDate, endDate);
+  }
+
+  @Get('enrollments')
+  @ApiOperation({ summary: 'Listar matrículas paginadas para reportes' })
+  async getEnrollments(@Query() query: EnrollmentsQueryDto) {
+    return this.reportsService.getEnrollmentsReport(
+      query.page,
+      query.limit,
+      query.search,
+    );
   }
 
   @Get('enrollments-by-month')
   @ApiOperation({ summary: 'Obtener matrículas por mes (últimos 12 meses)' })
-  getEnrollmentsByMonth() {
-    return this.reportsService.getEnrollmentsByMonth();
+  getEnrollmentsByMonth(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.reportsService.getEnrollmentsByMonth(startDate, endDate);
   }
 
   @Get('revenue-by-month')
   @ApiOperation({ summary: 'Obtener ingresos por mes (últimos 12 meses)' })
-  getRevenueByMonth() {
-    return this.reportsService.getRevenueByMonth();
+  getRevenueByMonth(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.reportsService.getRevenueByMonth(startDate, endDate);
   }
 
   @Get('courses-ranking')
@@ -64,6 +98,42 @@ export class ReportsController {
     return this.reportsService.getPaymentMethodsDistribution();
   }
 
+  @Get('financial-profitability')
+  @ApiOperation({ summary: 'Rentabilidad, costos y proyección financiera' })
+  getFinancialProfitability(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.reportsService.getFinancialProfitability(startDate, endDate);
+  }
+
+  @Get('operating-costs')
+  listOperatingCosts() {
+    return this.reportsService.listOperatingCosts();
+  }
+
+  @Post('operating-costs')
+  createOperatingCost(
+    @CurrentUser() user: { id: string },
+    @Body()
+    body: {
+      label: string;
+      amount: number;
+      periodStart: string;
+      periodEnd?: string;
+      courseId?: string;
+      cohortId?: string;
+      notes?: string;
+    },
+  ) {
+    return this.reportsService.createOperatingCost(user.id, body);
+  }
+
+  @Delete('operating-costs/:id')
+  deleteOperatingCost(@Param('id') id: string) {
+    return this.reportsService.deleteOperatingCost(id);
+  }
+
   // ── EXPORTACIÓN CSV ──
 
   @Get('export/students')
@@ -71,9 +141,15 @@ export class ReportsController {
   @ApiQuery({ name: 'cohortId', required: true })
   async exportStudents(
     @Query('cohortId') cohortId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
     @Res() res: express.Response,
   ) {
-    const csv = await this.reportsService.exportStudentsCsv(cohortId);
+    const csv = await this.reportsService.exportStudentsCsv(
+      cohortId,
+      startDate,
+      endDate,
+    );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
@@ -87,9 +163,15 @@ export class ReportsController {
   @ApiQuery({ name: 'cohortId', required: true })
   async exportGrades(
     @Query('cohortId') cohortId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
     @Res() res: express.Response,
   ) {
-    const csv = await this.reportsService.exportGradesCsv(cohortId);
+    const csv = await this.reportsService.exportGradesCsv(
+      cohortId,
+      startDate,
+      endDate,
+    );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
@@ -103,13 +185,35 @@ export class ReportsController {
   @ApiQuery({ name: 'cohortId', required: true })
   async exportAttendance(
     @Query('cohortId') cohortId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
     @Res() res: express.Response,
   ) {
-    const csv = await this.reportsService.exportAttendanceCsv(cohortId);
+    const csv = await this.reportsService.exportAttendanceCsv(
+      cohortId,
+      startDate,
+      endDate,
+    );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename=asistencia_${cohortId.slice(0, 8)}.csv`,
+    );
+    res.send('\uFEFF' + csv);
+  }
+
+  @Get('export/payments')
+  @ApiOperation({ summary: 'Exportar reporte financiero de pagos como CSV' })
+  async exportPayments(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Res() res: express.Response,
+  ) {
+    const csv = await this.reportsService.exportPaymentsCsv(startDate, endDate);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=reporte_financiero_pagos.csv',
     );
     res.send('\uFEFF' + csv);
   }

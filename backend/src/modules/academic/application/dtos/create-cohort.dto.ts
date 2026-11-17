@@ -29,8 +29,20 @@ export class CreateCohortDto {
   @IsNotEmpty()
   name: string;
 
+  @IsString()
+  @IsOptional()
+  modality?: string;
+
+  @IsString()
+  @IsOptional()
+  schedule?: string;
+
   @IsNumber()
   maxStudents: number;
+
+  @IsNumber()
+  @IsOptional()
+  installments?: number;
 
   @Transform(normalizeDecimal)
   @IsDecimal({ decimal_digits: '0,2' })

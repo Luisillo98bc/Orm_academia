@@ -3,6 +3,7 @@
 import type { Evaluation } from "@/types/domain";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
@@ -14,16 +15,14 @@ import {
   Award,
   Filter,
 } from "lucide-react";
-import { SubmitDeliverableModal } from "./submit-deliverable-modal";
 
 interface WeeklyTaskTrackerProps {
   evaluations: Evaluation[];
-  onRefresh: () => void;
 }
 
-export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerProps) {
+export function WeeklyTaskTracker({ evaluations }: WeeklyTaskTrackerProps) {
   const [filter, setFilter] = useState<"ALL" | "PENDING" | "SUBMITTED">("ALL");
-  const [selectedEval, setSelectedEval] = useState<Evaluation | null>(null);
+  const router = useRouter();
 
   const getTaskStatus = (evalItem: Evaluation) => {
     const deliverable = evalItem.deliverables?.[0];
@@ -31,7 +30,7 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
       if (deliverable.score !== null && deliverable.score !== undefined) {
         return {
           type: "GRADED",
-          label: `Calificado: ${deliverable.score}/20`,
+          label: `Calificado: ${deliverable.score}/${evalItem.maxScore || 20}`,
           color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
           icon: Award,
           deliverable,
@@ -68,7 +67,7 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
     return {
       type: "PENDING",
       label: "Pendiente",
-      color: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+      color: "bg-muted/50 text-muted-foreground border-border",
       icon: Clock,
     };
   };
@@ -78,10 +77,21 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
     if (filter === "PENDING") return status.type === "PENDING" || status.type === "URGENT" || status.type === "OVERDUE";
     if (filter === "SUBMITTED") return status.type === "SUBMITTED" || status.type === "GRADED";
     return true;
+  }).sort((a, b) => {
+    const aOverdue = getTaskStatus(a).type === "OVERDUE" ? 0 : 1;
+    const bOverdue = getTaskStatus(b).type === "OVERDUE" ? 0 : 1;
+    return aOverdue - bOverdue;
   });
+  const overdueCount = evaluations.filter((evaluation) => getTaskStatus(evaluation).type === "OVERDUE").length;
 
   return (
     <div className="space-y-4">
+      {overdueCount > 0 && (
+        <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div><p className="font-semibold">Tienes {overdueCount} {overdueCount === 1 ? "tarea vencida" : "tareas vencidas"}</p><p className="mt-1 text-sm">Aparecen primero en la lista para que puedas priorizarlas.</p></div>
+        </div>
+      )}
       {/* Barra de Filtros */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/40 p-3 rounded-xl border border-border/50">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -149,7 +159,7 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {ev.description || "Sin descripción adicional"}
                   </p>
-                  <div className="flex items-center gap-4 text-xs text-slate-500 pt-1">
+                  <div className="flex items-center gap-4 pt-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5 text-primary" />
                       Fecha Límite: {new Date(ev.dueDate).toLocaleString("es-ES")}
@@ -168,7 +178,7 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
                   {!status.deliverable ? (
                     <Button
                       size="sm"
-                      onClick={() => setSelectedEval(ev)}
+                      onClick={() => router.push(`/dashboard/aula/${ev.cohortId}`)}
                       className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
                     >
                       <Upload className="h-4 w-4" />
@@ -178,7 +188,7 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedEval(ev)}
+                      onClick={() => router.push(`/dashboard/aula/${ev.cohortId}`)}
                       className="w-full sm:w-auto text-xs gap-1.5"
                     >
                       <FileText className="h-3.5 w-3.5" />
@@ -192,18 +202,6 @@ export function WeeklyTaskTracker({ evaluations, onRefresh }: WeeklyTaskTrackerP
         </div>
       )}
 
-      {/* Modal de Entrega */}
-      {selectedEval && (
-        <SubmitDeliverableModal
-          isOpen={!!selectedEval}
-          onClose={() => setSelectedEval(null)}
-          onSuccess={() => {
-            setSelectedEval(null);
-            onRefresh();
-          }}
-          evaluation={selectedEval}
-        />
-      )}
     </div>
   );
 }

@@ -5,7 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { useConfirm } from "@/components/confirm-provider";
 import { Input } from "@/components/ui/input";
+import { EditContentModal, type EditableContent } from "@/components/teacher/edit-content-modal";
 import { cn } from "@/lib/utils";
 import {
   Loader2,
@@ -20,6 +23,7 @@ import {
   Reply,
   Clock,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 
 interface ForumMessage {
@@ -46,6 +50,7 @@ export default function ClassForumPage() {
   const router = useRouter();
   const cohortId = params.id as string;
   const { user } = useAuth();
+  const confirmAction = useConfirm();
 
   const [forums, setForums] = useState<Forum[]>([]);
   const [selectedForum, setSelectedForum] = useState<Forum | null>(null);
@@ -64,6 +69,7 @@ export default function ClassForumPage() {
   const [sending, setSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<ForumMessage | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingForum, setEditingForum] = useState<EditableContent | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -155,6 +161,24 @@ export default function ClassForumPage() {
     }
   };
 
+  const handleEditForum = (forum: Forum, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditingForum({ kind: "forum", id: forum.id, title: forum.title, description: forum.description });
+  };
+
+  const handleDeleteForum = async (forum: Forum, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!(await confirmAction({ title: "Eliminar foro", description: `Se eliminará “${forum.title}” junto con sus mensajes. Esta acción no se puede deshacer.`, confirmLabel: "Eliminar foro" }))) return;
+
+    try {
+      await fetchApi(`/communication/forums/${forum.id}`, { method: "DELETE" });
+      await loadForums();
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo eliminar el foro");
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedForum || sending) return;
@@ -179,7 +203,7 @@ export default function ClassForumPage() {
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    if (!confirm("¿Seguro que deseas eliminar este mensaje?")) return;
+    if (!(await confirmAction({ title: "Eliminar mensaje", description: "El mensaje se eliminará del foro y no podrá recuperarse.", confirmLabel: "Eliminar mensaje" }))) return;
     setDeletingId(messageId);
     try {
       await fetchApi(`/communication/forums/messages/${messageId}`, {
@@ -190,7 +214,7 @@ export default function ClassForumPage() {
       }
     } catch (err) {
       console.error(err);
-      alert("No se pudo eliminar el mensaje");
+      toast.error("No se pudo eliminar el mensaje");
     } finally {
       setDeletingId(null);
     }
@@ -396,25 +420,36 @@ export default function ClassForumPage() {
               <p className="text-xs text-muted-foreground italic text-center py-4">No hay foros creados.</p>
             ) : (
               forums.map((f) => (
-                <button
+                <div
                   key={f.id}
-                  onClick={() => setSelectedForum(f)}
                   className={cn(
-                    "w-full text-left p-3 rounded-xl border transition-all text-xs flex items-center justify-between group",
+                    "w-full p-3 rounded-xl border transition-all text-xs flex items-center justify-between group",
                     selectedForum?.id === f.id
                       ? "bg-primary/10 text-primary border-primary/20 font-semibold"
                       : "hover:bg-muted/50 border-transparent text-foreground"
                   )}
                 >
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <button type="button" onClick={() => setSelectedForum(f)} className="min-w-0 flex-1 text-left">
                     <p className="truncate font-semibold">{f.title}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                       <Calendar className="h-2.5 w-2.5 shrink-0" />
                       {new Date(f.createdAt).toLocaleDateString("es-ES")}
                     </p>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {isTeacherOrAdmin && (
+                      <>
+                        <button type="button" onClick={(event) => handleEditForum(f, event)} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary" aria-label={`Editar ${f.title}`} title="Editar foro">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button type="button" onClick={(event) => handleDeleteForum(f, event)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={`Eliminar ${f.title}`} title="Eliminar foro">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -512,6 +547,15 @@ export default function ClassForumPage() {
           
         </div>
       </div>
+
+      <EditContentModal
+        key={editingForum ? `${editingForum.kind}-${editingForum.id}` : "edit-forum-closed"}
+        content={editingForum}
+        onClose={() => setEditingForum(null)}
+        onSuccess={async () => {
+          await loadForums();
+        }}
+      />
     </div>
   );
 }

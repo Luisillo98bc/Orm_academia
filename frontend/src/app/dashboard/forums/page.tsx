@@ -18,10 +18,15 @@ import {
   CheckCircle2,
   X,
   Send,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Cohort as AcademicCohort, Enrollment } from "@/types/domain";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { useConfirm } from "@/components/confirm-provider";
+import { EditContentModal, type EditableContent } from "@/components/teacher/edit-content-modal";
 
 interface Forum {
   id: string;
@@ -44,6 +49,7 @@ interface Cohort {
 
 export default function ForumsPage() {
   const { user } = useAuth();
+  const confirmAction = useConfirm();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -57,6 +63,11 @@ export default function ForumsPage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [expandedForums, setExpandedForums] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState("");
+  const [unanswered, setUnanswered] = useState(false);
+  const [recentFirst, setRecentFirst] = useState(true);
+  const visibleForums = forums.filter(forum => `${forum.title} ${forum.description || ""}`.toLowerCase().includes(search.toLowerCase()) && (!unanswered || forum._count.messages === 0)).sort((a, b) => recentFirst ? new Date(b.messages?.[0]?.createdAt || b.createdAt).getTime() - new Date(a.messages?.[0]?.createdAt || a.createdAt).getTime() : a.title.localeCompare(b.title));
+  const [editingForum, setEditingForum] = useState<EditableContent | null>(null);
 
   const toggleExpand = (forumId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -72,7 +83,8 @@ export default function ForumsPage() {
       if (role === "ESTUDIANTE") {
         // Get enrolled cohorts
         const enrollments = await fetchApi("/academic/enrollments/me");
-        const mapped = (enrollments || []).map((enrollment: Enrollment) => ({
+        const enrollmentItems: Enrollment[] = enrollments?.data || enrollments || [];
+        const mapped = enrollmentItems.filter((enrollment: Enrollment) => enrollment.status === "ACTIVE" || enrollment.status === "COMPLETED").map((enrollment: Enrollment) => ({
           id: enrollment.cohort?.id || enrollment.cohortId,
           name: enrollment.cohort?.name || "Cohorte",
           isActive: true,
@@ -83,18 +95,19 @@ export default function ForumsPage() {
           setSelectedCohort(mapped[0].id);
         }
       } else {
-        // Admin/Docente see all cohorts
+        // El backend devuelve todas para ADMIN y solo las asignadas para DOCENTE.
         const data = await fetchApi("/academic/cohorts");
+        const cohortItems: AcademicCohort[] = data?.data || data || [];
         setCohorts(
-          (data || []).map((cohort: AcademicCohort) => ({
+          cohortItems.map((cohort: AcademicCohort) => ({
             id: cohort.id,
             name: cohort.name,
             isActive: cohort.isActive,
             course: cohort.course || { name: "Curso" },
           }))
         );
-        if (data && data.length > 0) {
-          setSelectedCohort(data[0].id);
+        if (cohortItems.length > 0) {
+          setSelectedCohort(cohortItems[0].id);
         }
       }
     } catch (err: unknown) {
@@ -161,6 +174,24 @@ export default function ForumsPage() {
     }
   };
 
+  const handleEditForum = (forum: Forum, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditingForum({ kind: "forum", id: forum.id, title: forum.title, description: forum.description });
+  };
+
+  const handleDeleteForum = async (forum: Forum, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!(await confirmAction({ title: "Eliminar foro", description: `Se eliminará “${forum.title}” junto con sus mensajes. Esta acción no se puede deshacer.`, confirmLabel: "Eliminar foro" }))) return;
+
+    try {
+      await fetchApi(`/communication/forums/${forum.id}`, { method: "DELETE" });
+      setSuccess("Foro eliminado correctamente");
+      await loadForums(selectedCohort);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "No se pudo eliminar el foro"));
+    }
+  };
+
   const selectedCohortData = cohorts.find((c) => c.id === selectedCohort);
 
   if (loading) {
@@ -177,16 +208,7 @@ export default function ForumsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-          <MessagesSquare className="h-8 w-8" />
-          Foros de Discusión
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Participa en las conversaciones de tus cohortes y comparte con la
-          comunidad.
-        </p>
-      </div>
+      <PageHeader eyebrow="Comunidad académica" title="Foros de discusión" description="Participa en las conversaciones de tus cohortes y comparte con la comunidad." />
 
       {/* Alerts */}
       {success && (
@@ -320,15 +342,16 @@ export default function ForumsPage() {
               </form>
             )}
 
+            <div className="workspace-toolbar mb-4"><label className="min-w-36 flex-1">Buscar tema<Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Título o descripción" /></label><label className="!flex !flex-row items-center"><input type="checkbox" checked={unanswered} onChange={event => setUnanswered(event.target.checked)} />Sin respuestas ({forums.filter(forum => forum._count.messages === 0).length})</label><label>Orden<select value={recentFirst ? "recent" : "name"} onChange={event => setRecentFirst(event.target.value === "recent")}><option value="recent">Actividad reciente</option><option value="name">Título</option></select></label></div>
             {loadingForums ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : forums.length === 0 ? (
+            ) : visibleForums.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center border border-border/50 rounded-xl bg-card/50">
                 <MessageSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground">
-                  No hay foros creados para esta cohorte.
+                  No hay foros para esta cohorte y estos filtros.
                 </p>
                 {isAdminOrTeacher && (
                   <p className="text-sm text-muted-foreground mt-1">
@@ -338,12 +361,19 @@ export default function ForumsPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {forums.map((forum, index) => (
-                  <button
+                {visibleForums.map((forum, index) => (
+                  <div
                     key={forum.id ? `forum-${forum.id}-${index}` : `forum-idx-${index}`}
                     onClick={() =>
                       router.push(`/dashboard/forums/${forum.id}`)
                     }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        router.push(`/dashboard/forums/${forum.id}`);
+                      }
+                    }}
                     className="w-full text-left rounded-xl border border-border/50 bg-card glass p-5 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-200 group"
                   >
                     <div className="flex items-start justify-between">
@@ -403,15 +433,49 @@ export default function ForumsPage() {
                           </div>
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
+                      <div className="flex shrink-0 items-start gap-1">
+                        {isAdminOrTeacher && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(event) => handleEditForum(forum, event)}
+                              className="rounded-lg p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                              aria-label={`Editar ${forum.title}`}
+                              title="Editar foro"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => handleDeleteForum(forum, event)}
+                              className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label={`Eliminar ${forum.title}`}
+                              title="Eliminar foro"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        <ChevronRight className="mt-2 h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         </div>
       )}
+
+      <EditContentModal
+        key={editingForum ? `${editingForum.kind}-${editingForum.id}` : "edit-forum-closed"}
+        content={editingForum}
+        onClose={() => setEditingForum(null)}
+        onSuccess={async () => {
+          setSuccess("Foro actualizado correctamente");
+          await loadForums(selectedCohort);
+        }}
+      />
     </div>
   );
 }

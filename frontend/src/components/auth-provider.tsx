@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { fetchApi, logoutSession } from "@/lib/api";
+import { ensureTabSessionIsolated, fetchApi, logoutSession } from "@/lib/api";
 
 interface User {
   id: string;
@@ -10,12 +10,20 @@ interface User {
   firstName?: string;
   lastName?: string;
   profilePicture?: string;
+  dni?: string;
+  phone?: string;
+  address?: string;
+  district?: string;
+  province?: string;
+  department?: string;
+  profileComplete?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (user: User) => void;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   isLoading: boolean;
 }
 
@@ -25,15 +33,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const refreshUser = async (): Promise<User | null> => {
+    try {
+      const userData = await fetchApi("/users/me");
+      setUser(userData);
+      return userData;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const handleExpiredSession = () => setUser(null);
     window.addEventListener("auth:expired", handleExpiredSession);
 
-    const timeoutId = window.setTimeout(() => {
-      fetchApi("/users/me")
-        .then((userData) => setUser(userData))
-        .catch(() => setUser(null))
-        .finally(() => setIsLoading(false));
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const sessionStatus = await fetchApi("/auth/session").catch(() => null);
+        if (sessionStatus?.authenticated === false) {
+          setUser(null);
+          return;
+        }
+        const userData = await fetchApi("/users/me");
+        setUser(userData);
+        await ensureTabSessionIsolated();
+      } catch {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     }, 0);
 
     return () => {
@@ -50,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, refreshUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { downloadApiFile, fetchApi, getErrorMessage } from "@/lib/api";
-import { Loader2, Award, Download, Calendar, ExternalLink } from "lucide-react";
+import { Loader2, Award, Download, Calendar, ExternalLink, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { toast } from "sonner";
 
 interface Certificate {
   id: string;
@@ -22,6 +24,8 @@ export default function MyCertificatesPage() {
   const [loading, setLoading] = useState(true);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [error, setError] = useState("");
+  const [downloadingCode, setDownloadingCode] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -43,11 +47,27 @@ export default function MyCertificatesPage() {
   }, []);
 
   const handleDownload = async (code: string) => {
+    if (downloadingCode) return;
+    setDownloadingCode(code);
     try {
       await downloadApiFile(`/certificates/${code}/pdf`, `certificado-${code}.pdf`);
     } catch (error) {
       console.error("Error downloading certificate:", error);
-      alert("Hubo un problema descargando el certificado.");
+      toast.error("Hubo un problema descargando el certificado.");
+    } finally {
+      setDownloadingCode(null);
+    }
+  };
+
+  const handleCopyVerifyLink = async (code: string) => {
+    try {
+      const url = `${window.location.origin}/verify/${code}`;
+      await navigator.clipboard.writeText(url);
+      setCopiedCode(code);
+      toast.success("Enlace de verificación copiado al portapapeles");
+      window.setTimeout(() => setCopiedCode((current) => (current === code ? null : current)), 2000);
+    } catch {
+      toast.error("No se pudo copiar el enlace");
     }
   };
 
@@ -62,15 +82,7 @@ export default function MyCertificatesPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-          <Award className="h-8 w-8" />
-          Mis Certificados
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Visualiza y descarga los certificados de los cursos que has completado.
-        </p>
-      </div>
+      <PageHeader eyebrow="Logros académicos" title="Mis certificados" description="Visualiza y descarga los certificados de los cursos que has completado." />
 
       {error && (
         <div className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 dark:bg-red-900/20 dark:border-red-900/50">
@@ -113,10 +125,14 @@ export default function MyCertificatesPage() {
                 </div>
               </CardContent>
               <CardFooter className="p-5 pt-0 flex gap-2">
-                <Button className="w-full gap-2" onClick={() => handleDownload(cert.code)}>
-                  <Download className="h-4 w-4" /> Descargar PDF
+                <Button className="w-full gap-2" disabled={downloadingCode === cert.code} onClick={() => void handleDownload(cert.code)}>
+                  {downloadingCode === cert.code ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {downloadingCode === cert.code ? "Descargando..." : "Descargar PDF"}
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => window.open(`/verify/${cert.code}`, "_blank")} title="Verificar certificado">
+                <Button variant="outline" size="icon" onClick={() => void handleCopyVerifyLink(cert.code)} title="Copiar enlace de verificación" aria-label="Copiar enlace de verificación">
+                  {copiedCode === cert.code ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => window.open(`/verify/${cert.code}`, "_blank")} title="Verificar certificado" aria-label="Verificar certificado">
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               </CardFooter>

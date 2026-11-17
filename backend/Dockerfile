@@ -16,8 +16,10 @@ RUN npm ci
 # Copiamos el resto del código del backend
 COPY backend/ ./
 
-# Generamos el Prisma Client
-RUN npm run prisma:generate
+# El esquema vive en database, mientras las dependencias están en backend.
+# Resolverlas desde allí evita instalaciones automáticas fuera del lockfile.
+RUN ln -s /app/backend/node_modules /app/database/node_modules \
+    && PRISMA_GENERATE_SKIP_AUTOINSTALL=1 npm run prisma:generate
 
 # Compilamos la aplicación NestJS
 RUN npm run build

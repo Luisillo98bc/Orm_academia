@@ -46,6 +46,14 @@ npm run prisma:migrate:deploy
 npm run prisma:seed
 ```
 
+Para cargar un escenario demo completo con 100 usuarios y actividad en todos los módulos:
+
+```bash
+npm run prisma:seed:demo
+```
+
+Las cuentas demo usan `Demo@1234!` y el formato de correo `demo100.<rol>001@academia.local`. Es un seed idempotente para entornos locales o de pruebas.
+
 No uses `prisma db push` en producción. Para cambios nuevos del esquema usa
 `npm run prisma:migrate` en desarrollo y versiona la migración generada.
 
@@ -73,6 +81,13 @@ variables de entorno correspondientes.
 
 ## Verificación
 
+La preparación más reciente está en
+[VALIDACION_PUBLICACION_20261117.md](VALIDACION_PUBLICACION_20261117.md), con las
+correcciones de 2FA, cuotas, reportes y archivos, las pruebas ejecutadas y los
+pasos de publicación pendientes. El correo real queda pendiente de configuración.
+
+Consulta [REVISION_TECNICA.md](REVISION_TECNICA.md) para las correcciones de concurrencia y sesiones, el alcance revisado y las validaciones pendientes antes de escalar.
+
 ```bash
 cd backend
 npm test -- --runInBand
@@ -92,9 +107,10 @@ npm run build
 - Cambia o elimina las credenciales del administrador de desarrollo antes de
   publicar la plataforma.
 
-Credenciales locales creadas por el seed:
+En desarrollo, define `INITIAL_ADMIN_EMAIL` y
+`INITIAL_ADMIN_PASSWORD` en el entorno local antes de ejecutar el seed. No
+documentes ni reutilices credenciales reales en el repositorio.
 
-- Email: `admin@academia.edu`
-- Contraseña: `Admin@1234`
-
-Estas credenciales son exclusivamente para desarrollo.
+En producción, el seed exige `INITIAL_ADMIN_PASSWORD` y nunca acepta esta
+contraseña de desarrollo. Después del primer acceso, activa 2FA y rota la
+contraseña inicial.

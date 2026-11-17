@@ -1,0 +1,457 @@
+{
+  "date": "2026-11-11",
+  "timezone": "America/Lima",
+  "isolation": {
+    "database": "sustained_validation",
+    "externalNetwork": false,
+    "externalProviders": false,
+    "scheduledJobs": false,
+    "databaseStorage": "tmpfs"
+  },
+  "limits": {
+    "api": {
+      "cpu": 2,
+      "memoryMiB": 3072
+    },
+    "database": {
+      "cpu": 1,
+      "memoryMiB": 768
+    },
+    "clients": {
+      "cpu": 1,
+      "memoryMiB": 256
+    }
+  },
+  "workload": {
+    "accounts": 50,
+    "actionsPerStudentPerSecond": 0.2,
+    "routes": 10,
+    "setup": "100 synthetic demo accounts plus a shared cohort for 50 students; valid session-bound JWTs; normal rate limits enabled"
+  },
+  "stages": [
+    {
+      "users": 10,
+      "elapsedMs": 60001,
+      "requests": 120,
+      "failures": 0,
+      "statuses": {
+        "200": 108,
+        "201": 12
+      },
+      "bytes": 155683,
+      "maxInFlight": 10,
+      "throughputPerSecond": 2,
+      "p50Ms": 42,
+      "p95Ms": 173,
+      "p99Ms": 257,
+      "byRoute": {
+        "catalog": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 120
+        },
+        "enrollments": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 223
+        },
+        "notifications": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 127
+        },
+        "overview": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 172
+        },
+        "posts": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 171
+        },
+        "save-progress": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 173
+        },
+        "modules": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 250
+        },
+        "evaluations": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 251
+        },
+        "progress": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 257
+        },
+        "submit": {
+          "requests": 12,
+          "failures": 0,
+          "maxMs": 263
+        }
+      }
+    },
+    {
+      "users": 25,
+      "elapsedMs": 60002,
+      "requests": 300,
+      "failures": 0,
+      "statuses": {
+        "200": 271,
+        "201": 29
+      },
+      "bytes": 402393,
+      "maxInFlight": 25,
+      "throughputPerSecond": 5,
+      "p50Ms": 106,
+      "p95Ms": 239,
+      "p99Ms": 252,
+      "byRoute": {
+        "catalog": {
+          "requests": 29,
+          "failures": 0,
+          "maxMs": 174
+        },
+        "notifications": {
+          "requests": 30,
+          "failures": 0,
+          "maxMs": 190
+        },
+        "posts": {
+          "requests": 29,
+          "failures": 0,
+          "maxMs": 237
+        },
+        "enrollments": {
+          "requests": 30,
+          "failures": 0,
+          "maxMs": 243
+        },
+        "modules": {
+          "requests": 31,
+          "failures": 0,
+          "maxMs": 243
+        },
+        "progress": {
+          "requests": 31,
+          "failures": 0,
+          "maxMs": 239
+        },
+        "overview": {
+          "requests": 31,
+          "failures": 0,
+          "maxMs": 243
+        },
+        "evaluations": {
+          "requests": 31,
+          "failures": 0,
+          "maxMs": 244
+        },
+        "save-progress": {
+          "requests": 29,
+          "failures": 0,
+          "maxMs": 239
+        },
+        "submit": {
+          "requests": 29,
+          "failures": 0,
+          "maxMs": 262
+        }
+      }
+    },
+    {
+      "users": 50,
+      "elapsedMs": 300003,
+      "requests": 3000,
+      "failures": 0,
+      "statuses": {
+        "200": 2700,
+        "201": 300
+      },
+      "bytes": 4357241,
+      "maxInFlight": 50,
+      "throughputPerSecond": 10,
+      "p50Ms": 179,
+      "p95Ms": 325,
+      "p99Ms": 455,
+      "byRoute": {
+        "catalog": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 402
+        },
+        "notifications": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 411
+        },
+        "enrollments": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 514
+        },
+        "posts": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 488
+        },
+        "overview": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 590
+        },
+        "modules": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 496
+        },
+        "progress": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 550
+        },
+        "evaluations": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 563
+        },
+        "save-progress": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 550
+        },
+        "submit": {
+          "requests": 300,
+          "failures": 0,
+          "maxMs": 607
+        }
+      }
+    }
+  ],
+  "requests": 3420,
+  "failures": 0,
+  "consistency": {
+    "students": 50,
+    "completedProgress": 50,
+    "deliverables": 50,
+    "revisions": 291
+  },
+  "successfulSubmissions": 341,
+  "sampledPeaks": {
+    "apiCpuPercent": 71.16,
+    "apiMemoryMiB": 361.6,
+    "databaseCpuPercent": 10.56,
+    "databaseMemoryMiB": 164.4,
+    "databaseConnections": 19
+  },
+  "resourceSamples": [
+    {
+      "timestamp": "2026-11-11T16:14:39.2087363Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 327.6,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 114.2,
+      "databaseConnections": 18
+    },
+    {
+      "timestamp": "2026-11-11T16:14:56.5732789Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 329.2,
+      "databaseCpuPercent": 0,
+      "databaseMemoryMiB": 121.7,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:15:13.8748650Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 330.8,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 125,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:15:31.0495521Z",
+      "apiCpuPercent": 0.02,
+      "apiMemoryMiB": 334.7,
+      "databaseCpuPercent": 0.03,
+      "databaseMemoryMiB": 130.6,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:15:48.4681364Z",
+      "apiCpuPercent": 0.56,
+      "apiMemoryMiB": 340,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 132.5,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:16:05.7732752Z",
+      "apiCpuPercent": 0.02,
+      "apiMemoryMiB": 344.8,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 135.6,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:16:23.0566980Z",
+      "apiCpuPercent": 0.96,
+      "apiMemoryMiB": 352.9,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 137.3,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:16:40.1122356Z",
+      "apiCpuPercent": 55.19,
+      "apiMemoryMiB": 354.8,
+      "databaseCpuPercent": 10.56,
+      "databaseMemoryMiB": 140.8,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:16:57.4143050Z",
+      "apiCpuPercent": 1.3,
+      "apiMemoryMiB": 355.5,
+      "databaseCpuPercent": 0.09,
+      "databaseMemoryMiB": 142,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:17:14.7333628Z",
+      "apiCpuPercent": 71.16,
+      "apiMemoryMiB": 356.3,
+      "databaseCpuPercent": 10.25,
+      "databaseMemoryMiB": 144.7,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:17:31.1520177Z",
+      "apiCpuPercent": 0.02,
+      "apiMemoryMiB": 356.1,
+      "databaseCpuPercent": 0.08,
+      "databaseMemoryMiB": 145.8,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:17:48.4984655Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 355.9,
+      "databaseCpuPercent": 0.01,
+      "databaseMemoryMiB": 162.4,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:18:05.7930163Z",
+      "apiCpuPercent": 0.02,
+      "apiMemoryMiB": 357.3,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 163.2,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:18:23.1150248Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 359.1,
+      "databaseCpuPercent": 0.01,
+      "databaseMemoryMiB": 163.6,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:18:40.2227500Z",
+      "apiCpuPercent": 51.54,
+      "apiMemoryMiB": 359.5,
+      "databaseCpuPercent": 10.52,
+      "databaseMemoryMiB": 163.9,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:18:57.5425776Z",
+      "apiCpuPercent": 0.85,
+      "apiMemoryMiB": 359.9,
+      "databaseCpuPercent": 0.01,
+      "databaseMemoryMiB": 164.4,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:19:14.8578824Z",
+      "apiCpuPercent": 56.98,
+      "apiMemoryMiB": 360.5,
+      "databaseCpuPercent": 0,
+      "databaseMemoryMiB": 162,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:19:31.2314187Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 360.6,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 145.8,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:19:48.5561411Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 360.8,
+      "databaseCpuPercent": 0,
+      "databaseMemoryMiB": 151.5,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:20:05.9098384Z",
+      "apiCpuPercent": 52.48,
+      "apiMemoryMiB": 361,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 153,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:20:23.2021995Z",
+      "apiCpuPercent": 1.3,
+      "apiMemoryMiB": 360.8,
+      "databaseCpuPercent": 0,
+      "databaseMemoryMiB": 155.5,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:20:40.2670807Z",
+      "apiCpuPercent": 36.1,
+      "apiMemoryMiB": 361.2,
+      "databaseCpuPercent": 8.18,
+      "databaseMemoryMiB": 157.7,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:20:57.5635543Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 361.1,
+      "databaseCpuPercent": 0.02,
+      "databaseMemoryMiB": 159.2,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:21:14.8575211Z",
+      "apiCpuPercent": 45.68,
+      "apiMemoryMiB": 361.6,
+      "databaseCpuPercent": 0.01,
+      "databaseMemoryMiB": 160.7,
+      "databaseConnections": 19
+    },
+    {
+      "timestamp": "2026-11-11T16:21:31.3208131Z",
+      "apiCpuPercent": 0,
+      "apiMemoryMiB": 361.3,
+      "databaseCpuPercent": 0.08,
+      "databaseMemoryMiB": 161,
+      "databaseConnections": 19
+    }
+  ],
+  "sourceLockSha256": "d4ec72f7f8594ffc0848f05c43082fb70d50b893d47dffb22f6dacf6dceaaca8",
+  "limitsOfResult": "Seven-minute controlled workload, including five minutes at 50 students and 10 requests/second. Loopback networking and PostgreSQL tmpfs; excludes production disk latency, uploads, sockets, login bursts, real providers, and maximum-capacity claims."
+}

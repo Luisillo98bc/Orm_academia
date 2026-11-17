@@ -8,6 +8,8 @@ import { useAuth } from "@/components/auth-provider";
 import { Loader2, ClipboardList, BookOpen, Calendar, CheckCircle2, Clock, AlertCircle, ChevronRight, FileText } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { MetricCard } from "@/components/dashboard/metric-card";
 
 export default function TeacherEvaluationsPage() {
   const { user } = useAuth();
@@ -77,42 +79,13 @@ export default function TeacherEvaluationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Evaluaciones</h2>
-        <p className="text-muted-foreground mt-1">Gestiona las evaluaciones y calificaciones de tus clases.</p>
-      </div>
+      <PageHeader eyebrow="Seguimiento académico" title="Evaluaciones" description="Gestiona las evaluaciones y calificaciones de tus clases." />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl border border-border/50 p-5 glass">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <ClipboardList className="h-5 w-5 text-primary" />
-            </div>
-            <span className="text-sm font-medium text-muted-foreground">Total Evaluaciones</span>
-          </div>
-          <p className="text-3xl font-bold">{totalEvaluations}</p>
-        </div>
-
-        <div className="bg-card rounded-xl border border-border/50 p-5 glass">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-amber-500/10">
-              <Clock className="h-5 w-5 text-amber-500" />
-            </div>
-            <span className="text-sm font-medium text-muted-foreground">Por Calificar</span>
-          </div>
-          <p className="text-3xl font-bold text-amber-500">{pendingGrading}</p>
-        </div>
-
-        <div className="bg-card rounded-xl border border-border/50 p-5 glass">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <BookOpen className="h-5 w-5 text-emerald-500" />
-            </div>
-            <span className="text-sm font-medium text-muted-foreground">Clases Activas</span>
-          </div>
-          <p className="text-3xl font-bold text-emerald-500">{classes.length}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <MetricCard icon={ClipboardList} label="Total evaluaciones" value={totalEvaluations} tone="primary" />
+        <MetricCard icon={Clock} label="Por calificar" value={pendingGrading} tone="warning" />
+        <MetricCard icon={BookOpen} label="Clases activas" value={classes.length} tone="success" />
       </div>
 
       {/* Evaluations by Class */}

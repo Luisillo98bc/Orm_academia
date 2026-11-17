@@ -20,3 +20,43 @@ export function moneyToMinorUnits(value: Money | number): number {
   if (!Number.isSafeInteger(result)) throw new Error("El importe excede el rango seguro");
   return result;
 }
+
+export function getCohortPricing(cohort: {
+  price?: Money | number | null;
+  discountPercentage?: number | null;
+  discountEndsAt?: string | null;
+}) {
+  const basePrice = moneyToNumber(cohort.price);
+  const discountPercentage = Number(cohort.discountPercentage ?? 0);
+  const hasValidPercentage = discountPercentage > 0 && discountPercentage <= 100;
+  const notExpired = cohort.discountEndsAt
+    ? new Date(cohort.discountEndsAt).getTime() > Date.now()
+    : false;
+  const discountActive = hasValidPercentage && notExpired;
+  const finalPrice = discountActive
+    ? basePrice * (1 - discountPercentage / 100)
+    : basePrice;
+
+  return {
+    basePrice,
+    finalPrice,
+    discountPercentage,
+    discountActive,
+  };
+}
+
+export function buildCsvBlob(
+  headers: string[],
+  rows: Array<Array<unknown>>,
+): Blob {
+  const escapeCell = (raw: unknown): string => {
+    const str = raw === null || raw === undefined ? "" : String(raw);
+    const safeFormula = /^[=+\-@]/.test(str) ? `'${str}` : str;
+    return `"${safeFormula.replace(/"/g, '""')}"`;
+  };
+
+  const headerLine = headers.map(escapeCell).join(",");
+  const rowLines = rows.map((row) => row.map(escapeCell).join(","));
+  const csvContent = `\uFEFF${[headerLine, ...rowLines].join("\r\n")}`;
+  return new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+}

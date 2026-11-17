@@ -11,9 +11,7 @@ interface SessionMetadata {
 
 interface AccessClaims {
   sub: string;
-  email: string;
-  roles: string[];
-  permissions: string[];
+  sid?: string;
 }
 
 interface RotatedSession {
@@ -55,27 +53,11 @@ export class RefreshSessionService {
   ): Promise<RotatedSession> {
     const tokenHash = this.hash(currentToken);
 
-    return this.prisma.$transaction(async (transaction) => {
+    const result = await this.prisma.$transaction(async (transaction) => {
       const session = await transaction.refreshSession.findUnique({
         where: { tokenHash },
         include: {
-          user: {
-            include: {
-              roles: {
-                where: { role: { deletedAt: null, isActive: true } },
-                include: {
-                  role: {
-                    include: {
-                      permissions: {
-                        where: { permission: { deletedAt: null } },
-                        include: { permission: true },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          user: { select: { id: true, isActive: true, deletedAt: true } },
         },
       });
 
@@ -88,7 +70,8 @@ export class RefreshSessionService {
           where: { userId: session.userId, revokedAt: null },
           data: { revokedAt: new Date() },
         });
-        throw new UnauthorizedException('La sesión ya fue utilizada');
+        // El rechazo debe ocurrir después del commit para conservar la revocación.
+        return null;
       }
 
       if (
@@ -118,21 +101,9 @@ export class RefreshSessionService {
         },
       });
 
-      const roles = session.user.roles.map(({ role }) => role.name);
-      const permissions = Array.from(
-        new Set(
-          session.user.roles.flatMap(({ role }) =>
-            role.permissions.map(
-              ({ permission }) => `${permission.subject}:${permission.action}`,
-            ),
-          ),
-        ),
-      );
       const claims: AccessClaims = {
         sub: session.user.id,
-        email: session.user.email,
-        roles,
-        permissions,
+        sid: this.hash(refreshToken),
       };
 
       return {
@@ -140,13 +111,104 @@ export class RefreshSessionService {
         refreshToken,
       };
     });
+
+    if (!result) {
+      throw new UnauthorizedException('La sesión ya fue utilizada');
+    }
+    return result;
   }
 
-  async revoke(token: string): Promise<void> {
+  async bindAccessToken(
+    accessToken: string,
+    refreshToken: string,
+  ): Promise<string> {
+    const claims = await this.jwtService.verifyAsync<AccessClaims>(accessToken);
+    return this.jwtService.signAsync({
+      sub: claims.sub,
+      sid: this.hash(refreshToken),
+    });
+  }
+
+  async validateAccessClaims(claims: { sub?: string; sid?: string }) {
+    if (!claims.sub || !claims.sid || !/^[a-f0-9]{64}$/.test(claims.sid)) {
+      throw new UnauthorizedException('Sesión no válida');
+    }
+    const session = await this.prisma.refreshSession.findUnique({
+      where: { tokenHash: claims.sid },
+      select: {
+        userId: true,
+        revokedAt: true,
+        expiresAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            isActive: true,
+            deletedAt: true,
+            roles: {
+              where: { role: { isActive: true, deletedAt: null } },
+              select: {
+                role: {
+                  select: {
+                    name: true,
+                    permissions: {
+                      where: { permission: { deletedAt: null } },
+                      select: {
+                        permission: { select: { subject: true, action: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (
+      !session ||
+      session.userId !== claims.sub ||
+      session.revokedAt ||
+      session.expiresAt <= new Date() ||
+      !session.user.isActive ||
+      session.user.deletedAt
+    ) {
+      throw new UnauthorizedException('Sesión no válida');
+    }
+    return {
+      id: session.user.id,
+      email: session.user.email,
+      roles: session.user.roles.map(({ role }) => role.name),
+      permissions: [
+        ...new Set(
+          session.user.roles.flatMap(({ role }) =>
+            role.permissions.map(
+              ({ permission }) => `${permission.subject}:${permission.action}`,
+            ),
+          ),
+        ),
+      ],
+    };
+  }
+
+  async revoke(token: string): Promise<string | null> {
+    if (typeof this.prisma.refreshSession.findUnique !== 'function') {
+      await this.prisma.refreshSession.updateMany({
+        where: { tokenHash: this.hash(token), revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return null;
+    }
+    const session = await this.prisma.refreshSession.findUnique({
+      where: { tokenHash: this.hash(token) },
+      select: { id: true, userId: true, revokedAt: true },
+    });
+    if (!session) return null;
     await this.prisma.refreshSession.updateMany({
       where: { tokenHash: this.hash(token), revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    return session.userId;
   }
 
   async revokeAll(userId: string): Promise<void> {
@@ -154,6 +216,41 @@ export class RefreshSessionService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  async revokeAccessSession(claims: {
+    sub?: string;
+    sid?: string;
+  }): Promise<string | null> {
+    if (!claims.sub || !claims.sid || !/^[a-f0-9]{64}$/.test(claims.sid))
+      return null;
+    const result = await this.prisma.refreshSession.updateMany({
+      where: { userId: claims.sub, tokenHash: claims.sid, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count === 1 ? claims.sub : null;
+  }
+
+  async list(userId: string) {
+    return this.prisma.refreshSession.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        userAgent: true,
+        ipAddress: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async revokeById(userId: string, sessionId: string): Promise<boolean> {
+    const result = await this.prisma.refreshSession.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count === 1;
   }
 
   private generateToken(): string {

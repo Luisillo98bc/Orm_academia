@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useEffectEvent } from "react";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, getErrorMessage } from "@/lib/api";
 import {
   Loader2,
   CalendarDays,
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SummaryStrip, WorkspaceTabs } from "@/components/dashboard/workspace-tabs";
+import { MonthlyAttendance } from "@/components/rrhh/monthly-attendance";
 
 interface WorkerAttendance {
   worker: {
@@ -34,14 +37,20 @@ export default function AttendancePage() {
   const [data, setData] = useState<WorkerAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const visibleData = data.filter(item => `${item.worker.name} ${item.worker.department} ${item.worker.position}`.toLowerCase().includes(search.toLowerCase()) && (!statusFilter || (item.attendance?.status || "UNMARKED") === statusFilter));
 
   const loadAttendance = async () => {
     setLoading(true);
     try {
       const res = await fetchApi(`/rrhh/attendance?date=${date}`);
       setData(res || []);
-    } catch (err) {
-      console.error(err);
+      setError("");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "No se pudo cargar la asistencia."));
     } finally {
       setLoading(false);
     }
@@ -58,6 +67,8 @@ export default function AttendancePage() {
 
   const handleMarkAttendance = async (workerId: string, status: string) => {
     setMarkingId(workerId);
+    setError("");
+    setNotice("");
     try {
       await fetchApi(`/rrhh/attendance`, {
         method: "POST",
@@ -76,7 +87,9 @@ export default function AttendancePage() {
               attendance: {
                 id: item.attendance?.id || "temp",
                 status,
-                checkInTime: (status === "PRESENT" || status === "LATE") ? new Date().toISOString() : item.attendance?.checkInTime,
+                checkInTime: (status === "PRESENT" || status === "LATE")
+                  ? item.attendance?.checkInTime || new Date().toISOString()
+                  : undefined,
                 observation: item.attendance?.observation,
               }
             };
@@ -84,9 +97,9 @@ export default function AttendancePage() {
           return item;
         })
       );
-    } catch (err) {
-      console.error(err);
-      alert("Error al guardar asistencia");
+      setNotice("Asistencia actualizada correctamente.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "No se pudo guardar la asistencia."));
     } finally {
       setMarkingId(null);
     }
@@ -112,12 +125,7 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary">Control de Asistencia</h2>
-          <p className="text-muted-foreground mt-1">Registra la asistencia diaria del personal activo.</p>
-        </div>
-        <div className="flex items-center gap-2 bg-card border border-border/50 p-2 rounded-xl shadow-sm">
+      <PageHeader eyebrow="Recursos humanos" title="Control de asistencia" description="Registra la asistencia diaria del personal activo." actions={<div className="flex items-center gap-2 rounded-xl border border-border/50 bg-card p-2 shadow-sm">
           <CalendarDays className="h-5 w-5 text-muted-foreground ml-2" />
           <Input
             type="date"
@@ -125,9 +133,22 @@ export default function AttendancePage() {
             onChange={(e) => setDate(e.target.value)}
             className="border-0 focus-visible:ring-0 shadow-none"
           />
-        </div>
-      </div>
+        </div>} />
 
+      {error && (
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          {notice}
+        </div>
+      )}
+
+      <WorkspaceTabs label="Vistas de asistencia" tabs={[{ id: "daily", label: "Registro diario", content: <>
+      <SummaryStrip items={[{ label: "Personal activo", value: data.length }, { label: "Presentes", value: data.filter(item => item.attendance?.status === "PRESENT").length }, { label: "Tardanzas", value: data.filter(item => item.attendance?.status === "LATE").length }, { label: "Sin marcar", value: data.filter(item => !item.attendance).length }]} />
+      <div className="workspace-toolbar"><label className="min-w-40 flex-1">Buscar personal<Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nombre, cargo o departamento" /></label><label>Estado<select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">Todos</option><option value="PRESENT">Presentes</option><option value="LATE">Tardanzas</option><option value="ABSENT">Ausentes</option><option value="EXCUSED">Permisos</option><option value="UNMARKED">Sin marcar</option></select></label></div>
       <div className="bg-card border border-border/50 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -155,7 +176,7 @@ export default function AttendancePage() {
                   </td>
                 </tr>
               ) : (
-                data.map((item) => (
+                visibleData.map((item) => (
                   <tr key={item.worker.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-3">
                       <p className="font-semibold">{item.worker.name}</p>
@@ -179,6 +200,7 @@ export default function AttendancePage() {
                           size="sm"
                           className="h-8 w-8 p-0 text-green-500 hover:text-green-600 hover:bg-green-500/10"
                           title="Marcar Presente"
+                          aria-label={`Marcar presente a ${item.worker.name}`}
                           onClick={() => handleMarkAttendance(item.worker.id, "PRESENT")}
                           disabled={markingId === item.worker.id || item.attendance?.status === "PRESENT"}
                         >
@@ -189,6 +211,7 @@ export default function AttendancePage() {
                           size="sm"
                           className="h-8 w-8 p-0 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
                           title="Marcar Tarde"
+                          aria-label={`Marcar tarde a ${item.worker.name}`}
                           onClick={() => handleMarkAttendance(item.worker.id, "LATE")}
                           disabled={markingId === item.worker.id || item.attendance?.status === "LATE"}
                         >
@@ -199,6 +222,7 @@ export default function AttendancePage() {
                           size="sm"
                           className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
                           title="Marcar Ausente"
+                          aria-label={`Marcar ausente a ${item.worker.name}`}
                           onClick={() => handleMarkAttendance(item.worker.id, "ABSENT")}
                           disabled={markingId === item.worker.id || item.attendance?.status === "ABSENT"}
                         >
@@ -209,6 +233,7 @@ export default function AttendancePage() {
                           size="sm"
                           className="h-8 w-8 p-0 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
                           title="Permiso / Justificado"
+                          aria-label={`Marcar permiso a ${item.worker.name}`}
                           onClick={() => handleMarkAttendance(item.worker.id, "EXCUSED")}
                           disabled={markingId === item.worker.id || item.attendance?.status === "EXCUSED"}
                         >
@@ -222,7 +247,7 @@ export default function AttendancePage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div></> }, { id: "monthly", label: "Resumen mensual", content: <MonthlyAttendance /> }]} />
     </div>
   );
 }

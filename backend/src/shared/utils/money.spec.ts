@@ -8,6 +8,7 @@ describe('money helpers', () => {
 
   it('convierte a céntimos sin aritmética IEEE-754', () => {
     expect(moneyToMinorUnits('199.99')).toBe(19999);
+    expect(() => moneyToMinorUnits('90071992547409.92')).toThrow();
     expect(() => moneyToMinorUnits('1.001')).toThrow('más de dos decimales');
   });
 });

@@ -1,164 +1,252 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, Mail, MapPin, Phone, Send, CheckCircle2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import {
+  ArrowUpRight,
+  BookOpenCheck,
+  ExternalLink,
+  GraduationCap,
+  Mail,
+  QrCode,
+  ShieldCheck,
+  Video,
+} from "lucide-react";
+import { fetchCatalogApi } from "@/lib/catalog-cache";
+import { clearConsent } from "@/lib/consent";
+import { WhatsAppLogo } from "@/components/whatsapp-logo";
+import type { PlatformSettings } from "@/types/domain";
 
 export function Footer() {
   const pathname = usePathname();
-  const [subscribed, setSubscribed] = useState(false);
-  const [email, setEmail] = useState("");
+  const [settings, setSettings] = useState<PlatformSettings | null>(null);
 
-  // Hide footer completely on dashboard routes
-  if (pathname?.startsWith("/dashboard")) {
-    return null;
-  }
+  useEffect(() => {
+    if (pathname?.startsWith("/dashboard")) return;
+    let mounted = true;
+    fetchCatalogApi<PlatformSettings>("/settings/public", "settings")
+      .then((data) => {
+        if (mounted) setSettings(data);
+      })
+      .catch(() => {
+        if (mounted) setSettings(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [pathname]);
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) {
-      setSubscribed(true);
-      setEmail("");
-      setTimeout(() => setSubscribed(false), 5000);
-    }
-  };
+  if (pathname?.startsWith("/dashboard")) return null;
+
+  const whatsappNumber = settings?.whatsappNumber?.replace(/\D/g, "");
+  const socialLinks = [
+    { label: "Facebook", href: settings?.facebookUrl },
+    { label: "Instagram", href: settings?.instagramUrl },
+    { label: "LinkedIn", href: settings?.linkedinUrl },
+    { label: "YouTube", href: settings?.youtubeUrl },
+    { label: "TikTok", href: settings?.tiktokUrl },
+    { label: "X", href: settings?.xUrl },
+  ].filter((social) => Boolean(social.href));
 
   return (
-    <footer id="contacto" className="bg-muted/30 border-t border-border mt-auto relative overflow-hidden">
-      {/* Background Subtle Gradient */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="container mx-auto px-4 py-14 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
-          {/* Col 1 & 2: Brand & Newsletter */}
-          <div className="md:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-primary to-indigo-500 flex items-center justify-center text-primary-foreground shadow-md shadow-primary/20">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <span className="font-bold text-2xl tracking-tight">
-                Academia<span className="gradient-text">Virtual</span>
-              </span>
-            </Link>
-            <p className="text-muted-foreground text-sm leading-relaxed max-w-sm">
-              Impulsando tu carrera profesional con educación tecnológica de primer nivel. Aprende con proyectos reales, mentores de la industria y certificación oficial.
-            </p>
-
-            {/* Newsletter Subscription */}
-            <div className="pt-2 max-w-sm">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">
-                Recibe novedades y becas exclusivas
-              </span>
-              {subscribed ? (
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2.5 rounded-xl text-sm font-medium animate-in fade-in">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>¡Te has suscrito con éxito!</span>
-                </div>
-              ) : (
-                <form onSubmit={handleSubscribe} className="flex gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@email.com"
-                    required
-                    className="bg-background border border-border rounded-xl px-3.5 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 shrink-0"
-                  >
-                    <span>Unirme</span>
-                    <Send className="h-3.5 w-3.5" />
-                  </button>
-                </form>
-              )}
+    <footer className="border-t border-border bg-white text-slate-600 dark:bg-background dark:text-slate-300">
+      {/* Franja superior de sellos de garantía institucional */}
+      <div className="border-b border-border bg-slate-50/80 dark:bg-white/[0.03]">
+        <div className="mx-auto grid max-w-7xl gap-4 px-5 py-6 sm:grid-cols-3 sm:px-8">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/15 dark:text-blue-300">
+              <Video className="h-4 w-4" />
+            </span>
+            <div className="text-xs">
+              <p className="font-bold text-slate-950 dark:text-white">Clases en Vivo + Grabaciones</p>
+              <p className="text-slate-500 dark:text-slate-400">Acceso 24/7 al campus virtual interactivo</p>
             </div>
           </div>
 
-          {/* Col 3: Enlaces Rápidos */}
-          <div>
-            <h3 className="font-semibold text-foreground text-sm uppercase tracking-wider mb-4">Navegación</h3>
-            <ul className="space-y-2.5 text-sm">
-              <li>
-                <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
-                  Inicio
-                </Link>
-              </li>
-              <li>
-                <Link href="/#beneficios" className="text-muted-foreground hover:text-primary transition-colors">
-                  Sobre Nosotros
-                </Link>
-              </li>
-              <li>
-                <Link href="/#cursos" className="text-muted-foreground hover:text-primary transition-colors">
-                  Catálogo de Cursos
-                </Link>
-              </li>
-              <li>
-                <Link href="/dashboard" className="text-muted-foreground hover:text-primary transition-colors">
-                  Campus Virtual
-                </Link>
-              </li>
-            </ul>
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/15 dark:text-amber-300">
+              <QrCode className="h-4 w-4" />
+            </span>
+            <div className="text-xs">
+              <p className="font-bold text-slate-950 dark:text-white">Certificados Oficiales con QR</p>
+              <p className="text-slate-500 dark:text-slate-400">Verificación pública instantánea en línea</p>
+            </div>
           </div>
 
-          {/* Col 4: Soporte */}
-          <div>
-            <h3 className="font-semibold text-foreground text-sm uppercase tracking-wider mb-4">Soporte</h3>
-            <ul className="space-y-2.5 text-sm">
-              <li>
-                <a href="#contacto" className="text-muted-foreground hover:text-primary transition-colors">
-                  Contacto directo
-                </a>
-              </li>
-              <li>
-                <a href="#faq" className="text-muted-foreground hover:text-primary transition-colors">
-                  Preguntas Frecuentes
-                </a>
-              </li>
-              <li>
-                <span className="text-muted-foreground/60 cursor-not-allowed">Términos de Servicio</span>
-              </li>
-              <li>
-                <span className="text-muted-foreground/60 cursor-not-allowed">Política de Privacidad</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 5: Contacto & Estado */}
-          <div>
-            <h3 className="font-semibold text-foreground text-sm uppercase tracking-wider mb-4">Contacto</h3>
-            <ul className="space-y-3 text-sm mb-4">
-              <li className="flex items-start gap-2.5 text-muted-foreground">
-                <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span>Lima, Perú (Sede Virtual Global)</span>
-              </li>
-              <li className="flex items-center gap-2.5 text-muted-foreground">
-                <Phone className="h-4 w-4 text-primary shrink-0" />
-                <span>+51 987 654 321</span>
-              </li>
-              <li className="flex items-center gap-2.5 text-muted-foreground">
-                <Mail className="h-4 w-4 text-primary shrink-0" />
-                <span>hola@academiavirtual.edu</span>
-              </li>
-            </ul>
-
-            {/* System Status Badge */}
-            <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-medium">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Plataforma 99.9% activa</span>
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
+            <div className="text-xs">
+              <p className="font-bold text-slate-950 dark:text-white">Matrícula 100% Protegida</p>
+              <p className="text-slate-500 dark:text-slate-400">Pago único o en cuotas vía Yape, Plin o Banco</p>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="border-t border-border/60 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Academia Virtual. Todos los derechos reservados.</p>
-          <div className="flex items-center gap-1.5 text-xs">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span>Pagos seguros con encriptación SSL de 256 bits</span>
+      {/* Cuerpo principal del Footer */}
+      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-16">
+        <div
+          className={`grid gap-10 ${
+            socialLinks.length
+              ? "md:grid-cols-[1.35fr_0.75fr_0.85fr_0.75fr]"
+              : "md:grid-cols-[1.4fr_0.8fr_0.9fr]"
+          }`}
+        >
+          {/* Columna 1: Identidad de Marca */}
+          <div className="space-y-4">
+            <Link href="/" className="group inline-flex items-center gap-3 text-slate-950 dark:text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md transition-transform group-hover:scale-105">
+                <GraduationCap className="h-6 w-6" />
+              </span>
+              <div>
+                <span className="block text-lg font-extrabold tracking-tight text-slate-950 dark:text-white">
+                  {settings?.academyName || "Academia Virtual"}
+                </span>
+                <span className="block text-[11px] font-semibold uppercase tracking-widest text-blue-700 dark:text-blue-400">
+                  Educación Continua
+                </span>
+              </div>
+            </Link>
+
+            <p className="max-w-md text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+              {settings?.description ||
+                "Cursos virtuales síncronos con clases en vivo, seguimiento docente y certificación digital verificable."}
+            </p>
+
+            <div className="pt-1">
+              <Link
+                href="/libro-de-reclamaciones"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-900 transition hover:border-blue-300 hover:bg-blue-50/70 dark:border-white/15 dark:bg-white/[0.04] dark:text-white dark:hover:border-blue-400/40 dark:hover:bg-white/[0.08]"
+              >
+                <BookOpenCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Libro de Reclamaciones Virtual
+              </Link>
+            </div>
           </div>
+
+          {/* Columna 2: Navegación Académica */}
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-400">
+              Navegación
+            </h3>
+            <nav className="mt-5 flex flex-col gap-3 text-sm">
+              <Link href="/cursos" className="flex items-center gap-1 transition-colors hover:text-slate-950 dark:hover:text-white">
+                Catálogo de programas <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
+              </Link>
+              <Link href="/#cohortes" className="transition-colors hover:text-slate-950 dark:hover:text-white">
+                Matrículas abiertas
+              </Link>
+              <Link href="/#como-funciona" className="transition-colors hover:text-slate-950 dark:hover:text-white">
+                Cómo funciona
+              </Link>
+              <Link href="/#faq" className="transition-colors hover:text-slate-950 dark:hover:text-white">
+                Preguntas frecuentes
+              </Link>
+              <Link href="/login" className="font-bold text-blue-700 transition-colors hover:text-blue-800 dark:text-amber-300 dark:hover:text-amber-200">
+                Ingresar al Campus Virtual
+              </Link>
+            </nav>
+          </div>
+
+          {/* Columna 3: Canales de Atención y Admisión */}
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-400">
+              Admisión y Contacto
+            </h3>
+            <div className="mt-5 flex flex-col gap-3.5 text-sm">
+              {whatsappNumber && (
+                <a
+                  href={`https://wa.me/${whatsappNumber}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-fit items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                >
+                  <WhatsAppLogo className="h-4 w-4" />
+                  <span>Atención por WhatsApp</span>
+                </a>
+              )}
+              {settings?.supportEmail && (
+                <a
+                  href={`mailto:${settings.supportEmail}`}
+                  className="flex items-center gap-2 text-slate-700 transition-colors hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
+                >
+                  <Mail className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <span className="truncate">{settings.supportEmail}</span>
+                </a>
+              )}
+              {!whatsappNumber && !settings?.supportEmail && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Atención en línea mediante el formulario de orientación.
+                </span>
+              )}
+              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Horario de soporte y validación de matrículas: Lunes a Sábado.
+              </p>
+            </div>
+          </div>
+
+          {/* Columna 4: Redes Sociales (si están configuradas) */}
+          {socialLinks.length > 0 && (
+            <div>
+              <h3 className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-400">
+                Comunidad
+              </h3>
+              <div className="mt-5 flex flex-col gap-3 text-sm">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.label}
+                    href={social.href!}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-slate-700 transition-colors hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
+                  >
+                    <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    {social.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Barra inferior de derechos y enlaces legales */}
+        <div className="mt-12 flex flex-col gap-4 border-t border-border pt-7 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <nav className="flex flex-wrap items-center gap-5" aria-label="Enlaces legales">
+            <Link href="/privacy" className="transition-colors hover:text-slate-950 dark:hover:text-white">
+              Privacidad
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-slate-950 dark:hover:text-white">
+              Términos y Condiciones
+            </Link>
+            <Link
+              href="/libro-de-reclamaciones"
+              className="inline-flex items-center gap-1.5 font-semibold text-slate-800 transition-colors hover:text-blue-700 dark:text-slate-200 dark:hover:text-blue-300"
+            >
+              <BookOpenCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              Libro de Reclamaciones
+            </Link>
+            <button
+              type="button"
+              onClick={clearConsent}
+              className="cursor-pointer transition-colors hover:text-slate-950 dark:hover:text-white"
+            >
+              Preferencias de privacidad
+            </button>
+          </nav>
+
+          <p>
+            © {new Date().getFullYear()}{" "}
+            {settings?.legalName || settings?.academyName || "Academia Virtual"}. Todos los derechos
+            reservados.
+          </p>
+
+          <span className="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            Pagos procesados de forma segura
+          </span>
         </div>
       </div>
     </footer>

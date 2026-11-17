@@ -1,5 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../../shared/infrastructure/prisma/prisma.service';
+
+interface DirectContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  profilePicture: string | null;
+  roles: string[];
+}
 
 @Injectable()
 export class DirectMessagesService {
@@ -53,7 +66,7 @@ export class DirectMessagesService {
         },
       });
 
-      const contactMap = new Map<string, any>();
+      const contactMap = new Map<string, DirectContact>();
       cohorts.forEach((c) =>
         c.enrollments.forEach((e) => {
           if (!contactMap.has(e.user.id)) {
@@ -84,7 +97,7 @@ export class DirectMessagesService {
       },
     });
 
-    const contactMap = new Map<string, any>();
+    const contactMap = new Map<string, DirectContact>();
     enrollments.forEach((e) =>
       e.cohort.teachers.forEach((t) => {
         if (!contactMap.has(t.id)) {
@@ -98,21 +111,23 @@ export class DirectMessagesService {
   /**
    * Obtener historial de conversación entre dos usuarios.
    */
-  async getConversation(userId: string, otherUserId: string) {
+  async getConversation(userId: string, otherUserId: string, before?: string) {
     // Marcar como leídos los mensajes recibidos
     await this.prisma.directMessage.updateMany({
       where: { senderId: otherUserId, receiverId: userId, isRead: false },
       data: { isRead: true },
     });
 
-    return this.prisma.directMessage.findMany({
+    const messages = await this.prisma.directMessage.findMany({
       where: {
         OR: [
           { senderId: userId, receiverId: otherUserId },
           { senderId: otherUserId, receiverId: userId },
         ],
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+      ...(before ? { cursor: { id: before }, skip: 1 } : {}),
       include: {
         sender: {
           select: {
@@ -124,14 +139,71 @@ export class DirectMessagesService {
         },
       },
     });
+    return messages.reverse();
   }
 
   /**
    * Enviar un mensaje directo.
    */
   async sendMessage(senderId: string, receiverId: string, content: string) {
+    if (
+      typeof content !== 'string' ||
+      !content.trim() ||
+      content.length > 5000 ||
+      senderId === receiverId
+    ) {
+      throw new BadRequestException(
+        'El mensaje o el destinatario no son válidos',
+      );
+    }
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: [senderId, receiverId] },
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        roles: {
+          where: { role: { isActive: true, deletedAt: null } },
+          select: { role: { select: { name: true } } },
+        },
+      },
+    });
+    if (users.length !== 2)
+      throw new ForbiddenException('Contacto no disponible');
+    const adminInvolved = users.some((user) =>
+      user.roles.some(({ role }) => role.name === 'ADMIN'),
+    );
+    if (!adminInvolved) {
+      const sharedCohort = await this.prisma.cohort.findFirst({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          OR: [
+            {
+              teachers: { some: { id: senderId } },
+              enrollments: {
+                some: { userId: receiverId, status: 'ACTIVE', deletedAt: null },
+              },
+            },
+            {
+              teachers: { some: { id: receiverId } },
+              enrollments: {
+                some: { userId: senderId, status: 'ACTIVE', deletedAt: null },
+              },
+            },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!sharedCohort)
+        throw new ForbiddenException(
+          'No puedes enviar mensajes a este usuario',
+        );
+    }
     return this.prisma.directMessage.create({
-      data: { senderId, receiverId, content },
+      data: { senderId, receiverId, content: content.trim() },
       include: {
         sender: {
           select: {
@@ -158,6 +230,17 @@ export class DirectMessagesService {
   /**
    * Obtener conteo de mensajes no leídos por usuario.
    */
+  async getUnreadByContact(userId: string) {
+    const counts = await this.prisma.directMessage.groupBy({
+      by: ['senderId'],
+      where: { receiverId: userId, isRead: false },
+      _count: { id: true },
+    });
+    return Object.fromEntries(
+      counts.map((item) => [item.senderId, item._count.id]),
+    );
+  }
+
   async getUnreadCount(userId: string) {
     return this.prisma.directMessage.count({
       where: { receiverId: userId, isRead: false },

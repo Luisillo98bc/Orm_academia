@@ -1,0 +1,612 @@
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(circle at 14% 20%, hsl(var(--secondary) / 0.9), transparent 38%),
+    radial-gradient(circle at 86% 74%, hsl(var(--accent) / 0.15), transparent 40%),
+    linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.4));
+}
+
+.copy {
+  max-width: 38rem;
+  text-align: center;
+  animation: copy-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1.35rem;
+  padding: 0.48rem 1.05rem;
+  border-radius: 999px;
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 20px -14px hsl(var(--primary) / 0.35);
+}
+
+.pulseDot {
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 999px;
+  background: hsl(var(--accent));
+  box-shadow: 0 0 0 4px hsl(var(--accent) / 0.2);
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+.highlightWrap {
+  position: relative;
+  display: inline-block;
+  color: hsl(var(--primary));
+}
+
+:global(.dark) .highlightWrap {
+  color: hsl(var(--accent));
+}
+
+.markerUnderline {
+  position: absolute;
+  left: 0;
+  bottom: -0.32rem;
+  width: 100%;
+  height: 0.65rem;
+  color: hsl(var(--accent));
+  transform-origin: left center;
+  animation: draw-underline 720ms 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.primaryCta {
+  min-height: 3.2rem;
+  padding-inline: 1.65rem;
+  border-radius: 999px;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-weight: 700;
+  gap: 0.5rem;
+  box-shadow: 0 14px 28px -12px hsl(var(--accent) / 0.7);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.primaryCta:hover {
+  background: hsl(var(--accent) / 0.92);
+  transform: translateY(-2px);
+}
+
+.secondaryCta {
+  min-height: 3.2rem;
+  padding-inline: 1.55rem;
+  border-radius: 999px;
+  border-width: 2px;
+  border-color: hsl(var(--primary));
+  background: hsl(var(--card) / 0.92);
+  color: hsl(var(--foreground));
+  font-weight: 700;
+  gap: 0.5rem;
+}
+
+.quickChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card) / 0.85);
+  color: hsl(var(--foreground));
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.quickChip:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--accent));
+  background: hsl(var(--card));
+}
+
+/* ================= ESCENARIO ANIMADO MULTICAPA ================= */
+
+.sceneStage {
+  position: relative;
+  width: min(100%, 36rem);
+  margin-inline: auto;
+  padding: 1.25rem 0.5rem 1.6rem;
+  animation: stage-enter 680ms 80ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.artFrame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.85rem;
+  border: 3px solid #22435e;
+  background: #f8fafc;
+  box-shadow:
+    12px 14px 0 #22435e,
+    0 28px 60px -28px rgba(34, 67, 94, 0.45);
+  animation: frame-float 5.2s ease-in-out infinite;
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sceneStage:hover .artFrame {
+  transform: translateY(-4px) rotate(-0.6deg);
+}
+
+/* Anillos superiores tipo cuaderno */
+.spiralRow {
+  position: absolute;
+  top: 0.55rem;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  gap: 1.6rem;
+  transform: translateX(-50%);
+}
+
+.spiralRow span {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 2.5px solid #22435e;
+  background: #e2e8f0;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.8);
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  transform-origin: center;
+  animation: image-breathe 5.2s ease-in-out infinite;
+}
+
+/* Overlay SVG de trazos animados sobre el perrito */
+.motionOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tailMotionLines {
+  transform-box: fill-box;
+  transform-origin: left bottom;
+  animation: tail-lines-wag 0.95s ease-in-out infinite alternate;
+}
+
+.earMotionLines {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: ear-pop 2.4s ease-in-out infinite;
+}
+
+.bobaBubbles {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: boba-rise 2.6s ease-in-out infinite;
+}
+
+/* Tarjeta flotante superior izquierda: Evidencia */
+.evidenceBadge {
+  position: absolute;
+  top: 0;
+  left: -0.35rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.95rem;
+  border-radius: 1rem;
+  border: 2.5px solid #22435e;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 5px 6px 0 #22435e;
+  animation:
+    badge-pop 640ms 260ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    badge-bob 4.2s 900ms ease-in-out infinite alternate;
+}
+
+.evidenceIcon {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: hsl(var(--secondary));
+  font-size: 1rem;
+}
+
+.evidenceTitle {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: hsl(var(--accent));
+}
+
+.evidenceSubtitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* Globo de diálogo del perrito (arriba derecha) */
+.speechBubble {
+  position: absolute;
+  top: 0.25rem;
+  right: -0.25rem;
+  z-index: 5;
+  max-width: 13.5rem;
+  padding: 0.68rem 0.9rem;
+  border-radius: 1.05rem;
+  border: 2.5px solid #22435e;
+  background: #fef08a;
+  color: #1e3a52;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.3;
+  box-shadow: 5px 6px 0 #22435e;
+  transform: rotate(2deg);
+  animation:
+    bubble-pop 680ms 420ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    bubble-float 3.6s 1.1s ease-in-out infinite alternate;
+}
+
+.speechTail {
+  position: absolute;
+  bottom: -0.52rem;
+  left: 1.6rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-right: 2.5px solid #22435e;
+  border-bottom: 2.5px solid #22435e;
+  background: #fef08a;
+  transform: rotate(45deg);
+}
+
+/* Tarjeta flotante inferior: Progreso intacto */
+.safeCard {
+  position: absolute;
+  bottom: 0.2rem;
+  left: 0.5rem;
+  z-index: 5;
+  min-width: 15.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  border: 2.5px solid #22435e;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 5px 6px 0 #22435e;
+  animation:
+    badge-pop 660ms 540ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    safe-bob 4.6s 1.2s ease-in-out infinite alternate;
+}
+
+.safeHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.safeHeader strong {
+  margin-left: auto;
+  color: hsl(var(--accent));
+  font-weight: 800;
+}
+
+.safeBarTrack {
+  margin-top: 0.45rem;
+  height: 0.42rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+}
+
+.safeBarFill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #168f80, #d7a04a);
+  transform-origin: left center;
+  animation: fill-progress 1.1s 750ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Pedacitos de papel de cuaderno flotando */
+.paperScrap {
+  position: absolute;
+  z-index: 4;
+  border: 2px solid #22435e;
+  background: #ffffff;
+  box-shadow: 2px 3px 0 rgba(34, 67, 94, 0.25);
+}
+
+.scrapOne {
+  top: 42%;
+  left: -0.6rem;
+  width: 1.15rem;
+  height: 0.85rem;
+  border-radius: 0.2rem;
+  transform: rotate(-18deg);
+  animation: scrap-drift-1 4.4s ease-in-out infinite alternate;
+}
+
+.scrapTwo {
+  bottom: 18%;
+  right: -0.5rem;
+  width: 1rem;
+  height: 1.2rem;
+  border-radius: 0.2rem;
+  background: #fde047;
+  transform: rotate(22deg);
+  animation: scrap-drift-2 3.9s ease-in-out infinite alternate;
+}
+
+.scrapThree {
+  top: 18%;
+  left: 38%;
+  width: 0.8rem;
+  height: 0.65rem;
+  border-radius: 0.15rem;
+  transform: rotate(12deg);
+  animation: scrap-drift-1 3.4s 400ms ease-in-out infinite alternate;
+}
+
+.document {
+  color-scheme: light;
+  --background: 210 33% 98%;
+  --foreground: 215 39% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 39% 17%;
+  --primary: 215 47% 25%;
+  --primary-foreground: 210 33% 98%;
+  --secondary: 39 35% 93%;
+  --secondary-foreground: 215 39% 17%;
+  --muted: 210 24% 94%;
+  --muted-foreground: 215 17% 42%;
+  --accent: 165 63% 38%;
+  --accent-foreground: 0 0% 100%;
+  --border: 210 20% 86%;
+  --input: 210 20% 82%;
+  --ring: 165 63% 38%;
+}
+
+.documentBody {
+  min-height: 100dvh;
+  margin: 0;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* ================= KEYFRAMES ================= */
+
+@keyframes copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes stage-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.95);
+  }
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.75;
+  }
+}
+
+@keyframes draw-underline {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+}
+
+@keyframes frame-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes image-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.018);
+  }
+}
+
+@keyframes tail-lines-wag {
+  from {
+    transform: rotate(-8deg) translate(-2px, 2px);
+    opacity: 0.75;
+  }
+  to {
+    transform: rotate(10deg) translate(4px, -3px);
+    opacity: 1;
+  }
+}
+
+@keyframes ear-pop {
+  0%,
+  100% {
+    transform: scale(0.92) translateY(2px);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08) translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes boba-rise {
+  0% {
+    transform: translateY(8px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(-14px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes badge-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+}
+
+@keyframes bubble-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) rotate(-4deg) scale(0.88);
+  }
+}
+
+@keyframes badge-bob {
+  from {
+    transform: translateY(0) rotate(-1deg);
+  }
+  to {
+    transform: translateY(-5px) rotate(1deg);
+  }
+}
+
+@keyframes bubble-float {
+  from {
+    transform: translateY(0) rotate(2deg);
+  }
+  to {
+    transform: translateY(-6px) rotate(-1.5deg);
+  }
+}
+
+@keyframes safe-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes fill-progress {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes scrap-drift-1 {
+  from {
+    transform: translateY(0) rotate(-18deg);
+  }
+  to {
+    transform: translateY(-10px) rotate(14deg);
+  }
+}
+
+@keyframes scrap-drift-2 {
+  from {
+    transform: translateY(0) rotate(22deg);
+  }
+  to {
+    transform: translateY(-12px) rotate(-12deg);
+  }
+}
+
+@media (min-width: 1024px) {
+  .copy {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .speechBubble {
+    max-width: 11rem;
+    font-size: 0.72rem;
+    right: 0.25rem;
+  }
+
+  .evidenceBadge {
+    left: 0.25rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .document {
+    color-scheme: dark;
+    --background: 216 35% 10%;
+    --foreground: 40 30% 96%;
+    --card: 215 31% 14%;
+    --card-foreground: 40 30% 96%;
+    --primary: 165 63% 46%;
+    --primary-foreground: 216 35% 10%;
+    --secondary: 215 26% 20%;
+    --secondary-foreground: 40 30% 96%;
+    --muted: 215 26% 20%;
+    --muted-foreground: 215 15% 70%;
+    --accent: 40 68% 58%;
+    --accent-foreground: 216 35% 10%;
+    --border: 215 22% 25%;
+    --input: 215 22% 25%;
+    --ring: 165 63% 46%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy,
+  .pulseDot,
+  .markerUnderline,
+  .sceneStage,
+  .artFrame,
+  .heroImage,
+  .tailMotionLines,
+  .earMotionLines,
+  .bobaBubbles,
+  .evidenceBadge,
+  .speechBubble,
+  .safeCard,
+  .safeBarFill,
+  .paperScrap {
+    animation: none;
+  }
+}

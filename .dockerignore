@@ -2,8 +2,13 @@
 **/dist
 **/.next
 **/.git
-**/.env
-**/.env.local
+**/.env*
+!**/.env*.example
 **/npm-debug.log
 **/coverage
 **/test
+**/private-uploads
+**/uploads
+**/backups
+**/.auth
+**/.validation-production

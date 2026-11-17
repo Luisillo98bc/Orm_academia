@@ -55,8 +55,12 @@ export class RegisterUseCase {
           roles: user.roles,
         },
       };
-    } catch (error: any) {
-      if (error.code === 'P2002') {
+    } catch (error: unknown) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? error.code
+          : undefined;
+      if (code === 'P2002') {
         throw new ConflictException(
           'El correo electrónico ya se encuentra registrado en el sistema',
         );

@@ -37,7 +37,7 @@ export class GradeDeliverableDto {
     { message: 'La nota debe ser un número con máximo 2 decimales' },
   )
   @Min(0, { message: 'La nota mínima es 0' })
-  @Max(20, { message: 'La nota máxima es 20' })
+  @Max(100, { message: 'La nota máxima es 100; se valida según la actividad' })
   readonly score: number;
 
   /**

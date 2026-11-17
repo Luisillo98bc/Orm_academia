@@ -2,6 +2,7 @@ import { CourseEntity } from '../entities/course.entity';
 
 export interface ICourseRepository {
   findAll(): Promise<CourseEntity[]>;
+  findPublic(): Promise<CourseEntity[]>;
   findById(id: string): Promise<CourseEntity | null>;
   create(data: {
     code: string;
@@ -27,6 +28,7 @@ export interface ICourseRepository {
       level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
       durationHours?: number;
       imageUrl?: string | null;
+      isPublished?: boolean;
     },
   ): Promise<CourseEntity>;
 

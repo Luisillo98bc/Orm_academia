@@ -1,5 +1,6 @@
 "use client";
 
+import { Modal } from "@/components/ui/modal";
 import type { Cohort } from "@/types/domain";
 
 import { useState } from "react";
@@ -72,9 +73,10 @@ export function EvaluateTeacherModal({
   const displayScore = hoverScore !== null ? hoverScore : score;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in">
+    <Modal title="Evaluar docente" onClose={() => { if (!loading) onClose(); }}>
+
       <Card className="w-full max-w-lg bg-card border-border shadow-2xl relative rounded-3xl overflow-hidden">
-        <button
+        <button aria-label="Cerrar ventana"
           onClick={onClose}
           className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted transition-colors z-10"
         >
@@ -163,11 +165,11 @@ export function EvaluateTeacherModal({
 
               {/* Comment Textarea */}
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                <label htmlFor="student-evaluate-teacher-modal-0" className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
                   Comentarios Adicionales (Opcional)
                 </label>
                 <textarea
-                  value={comment}
+ id="student-evaluate-teacher-modal-0"                  value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   rows={3}
                   className="w-full rounded-xl border border-input bg-background/60 focus:bg-background px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
@@ -197,6 +199,6 @@ export function EvaluateTeacherModal({
           )}
         </CardContent>
       </Card>
-    </div>
+    </Modal>
   );
 }

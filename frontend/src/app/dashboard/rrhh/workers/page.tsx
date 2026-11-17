@@ -3,38 +3,53 @@
 import type { Worker } from "@/types/domain";
 import { formatMoney } from "@/lib/money";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { fetchApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 import { CreateWorkerModal } from "@/components/rrhh/create-worker-modal";
 import { DataTable, DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SummaryStrip } from "@/components/dashboard/workspace-tabs";
 
 export default function RrhhWorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState("");
+  const pageSize = 20;
   const router = useRouter();
 
-  const loadWorkers = async () => {
+  const loadWorkers = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
-      const data = await fetchApi("/rrhh/workers");
-      setWorkers(data || []);
+      const query = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (search.trim()) query.set("search", search.trim());
+      if (activeFilters.status && activeFilters.status !== "__all__") query.set("status", activeFilters.status);
+      if (activeFilters.department && activeFilters.department !== "__all__") query.set("department", activeFilters.department);
+      const response = await fetchApi(`/rrhh/workers?${query}`);
+      const rows = response?.data || response || [];
+      setWorkers(rows);
+      setTotal(response?.pagination?.total || rows.length);
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "No se pudo cargar el personal");
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeFilters, page, search]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       loadWorkers();
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, []);
+  }, [loadWorkers]);
 
   const columns: DataTableColumn<Worker>[] = [
     {
@@ -48,6 +63,11 @@ export default function RrhhWorkersPage() {
           <div>
             <p className="font-medium">{worker.user?.firstName} {worker.user?.lastName}</p>
             <p className="text-xs text-muted-foreground">{worker.user?.email}</p>
+            {worker.user?.deletedAt && (
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                Cuenta eliminada · solo historial
+              </p>
+            )}
           </div>
         </div>
       ),
@@ -75,11 +95,13 @@ export default function RrhhWorkersPage() {
       header: "Estado",
       render: (worker) => (
         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+          worker.user?.deletedAt ? 'bg-slate-500/10 text-slate-500' :
           worker.status === 'ACTIVE' ? 'bg-green-500/10 text-green-500' : 
           worker.status === 'VACATION' ? 'bg-yellow-500/10 text-yellow-500' : 
           'bg-red-500/10 text-red-500'
         }`}>
-          {worker.status === 'ACTIVE' ? 'Activo' : 
+          {worker.user?.deletedAt ? 'Cuenta eliminada' :
+           worker.status === 'ACTIVE' ? 'Activo' :
            worker.status === 'INACTIVE' ? 'Inactivo' : 
            worker.status === 'VACATION' ? 'Vacaciones' : worker.status}
         </span>
@@ -120,25 +142,32 @@ export default function RrhhWorkersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary">Gestión de Personal</h2>
-          <p className="text-muted-foreground mt-1">Administra los trabajadores, docentes y staff de la academia.</p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nuevo Trabajador
-        </Button>
-      </div>
+      <PageHeader eyebrow="Recursos humanos" title="Gestión de personal" description="Administra los trabajadores, docentes y staff de la academia." actions={<Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2"><Plus className="h-4 w-4" />Nuevo trabajador</Button>} />
+      <SummaryStrip items={[{ label: "Personal encontrado", value: total }, { label: "Activo en esta página", value: workers.filter(worker => worker.status === "ACTIVE").length }, { label: "Departamentos en esta página", value: new Set(workers.map(worker => worker.department)).size }]} />
+      {error && <div role="alert" className="workspace-note">{error}<Button variant="outline" size="sm" className="ml-3" onClick={loadWorkers}>Reintentar</Button></div>}
 
       <DataTable
         data={workers}
         columns={columns}
         filters={filters}
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          search,
+          filters: activeFilters,
+          onPageChange: setPage,
+          onSearchChange: (value) => { setSearch(value); setPage(1); },
+          onFilterChange: (key, value) => {
+            setActiveFilters((current) => ({ ...current, [key]: value }));
+            setPage(1);
+          },
+        }}
         loading={loading}
         searchPlaceholder="Buscar por nombre, email, cargo..."
         emptyMessage="No hay trabajadores registrados"
         emptyIcon={<Users className="h-12 w-12 text-muted-foreground mb-2" />}
-        pageSize={8}
+        pageSize={pageSize}
       />
 
       <CreateWorkerModal 

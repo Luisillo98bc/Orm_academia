@@ -2,7 +2,7 @@
 // AppModule — Módulo raíz del monolito modular
 // ============================================================================
 
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnvironment } from './config/env.validation';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -16,12 +16,15 @@ import { CommunicationModule } from './modules/communication/communication.modul
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { MailModule } from './shared/infrastructure/mail/mail.module';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
-
 import { StorageModule } from './shared/infrastructure/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
 import { DecimalSerializationInterceptor } from './shared/infrastructure/interceptors/decimal-serialization.interceptor';
+import { ProspectsModule } from './modules/prospects/prospects.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuditInterceptor } from './modules/audit/audit.interceptor';
+import { CsrfOriginMiddleware } from './shared/infrastructure/security/csrf-origin.middleware';
+import { SupportModule } from './modules/support/support.module';
+import { AutomationModule } from './modules/automation/automation.module';
 
 @Module({
   imports: [
@@ -40,13 +43,6 @@ import { DecimalSerializationInterceptor } from './shared/infrastructure/interce
       },
     ]),
 
-    // ── Archivos Estáticos ──
-
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
-    }),
-
     // ── Infraestructura compartida ──
     PrismaModule,
     MailModule,
@@ -61,6 +57,10 @@ import { DecimalSerializationInterceptor } from './shared/infrastructure/interce
     CommunicationModule,
     CertificatesModule,
     SettingsModule,
+    ProspectsModule,
+    AuditModule,
+    SupportModule,
+    AutomationModule,
   ],
   providers: [
     {
@@ -71,6 +71,14 @@ import { DecimalSerializationInterceptor } from './shared/infrastructure/interce
       provide: APP_INTERCEPTOR,
       useClass: DecimalSerializationInterceptor,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(CsrfOriginMiddleware).forRoutes('*');
+  }
+}

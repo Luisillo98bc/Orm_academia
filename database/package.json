@@ -8,6 +8,7 @@
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:migrate:deploy": "npx prisma migrate deploy",
     "prisma:seed": "npx prisma db seed",
+    "prisma:seed:demo": "ts-node prisma/seed-load-test.ts",
     "prisma:studio": "npx prisma studio",
     "prisma:reset": "npx prisma migrate reset",
     "docker:up": "docker compose -f ../docker-compose.yml up -d db",
@@ -24,5 +25,8 @@
     "prisma": "^6.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2"
   }
 }

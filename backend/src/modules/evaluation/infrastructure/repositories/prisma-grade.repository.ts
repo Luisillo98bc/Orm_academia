@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { Injectable } from '@nestjs/common';
+import { GradeStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service';
 import { IGradeRepository } from '../../domain/repositories/grade.repository.interface';
 import {
@@ -41,7 +42,7 @@ export class PrismaGradeRepository implements IGradeRepository {
         graderId: data.graderId,
         score: data.score,
         feedback: data.feedback,
-        status: data.status as any,
+        status: data.status as GradeStatus,
       },
     });
 
@@ -61,7 +62,9 @@ export class PrismaGradeRepository implements IGradeRepository {
       data: {
         ...(data.score !== undefined && { score: data.score }),
         ...(data.feedback !== undefined && { feedback: data.feedback }),
-        ...(data.status !== undefined && { status: data.status as any }),
+        ...(data.status !== undefined && {
+          status: data.status as GradeStatus,
+        }),
         gradedAt: new Date(),
       },
     });
@@ -69,7 +72,9 @@ export class PrismaGradeRepository implements IGradeRepository {
     return this.toDomainEntity(grade);
   }
 
-  private toDomainEntity(raw: any): GradeEntity {
+  private toDomainEntity(
+    raw: Prisma.GradeGetPayload<Prisma.GradeDefaultArgs>,
+  ): GradeEntity {
     return new GradeEntity({
       id: raw.id,
       deliverableId: raw.deliverableId,

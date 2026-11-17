@@ -5,7 +5,7 @@ import { formatMoney } from "@/lib/money";
 
 import { useState, useEffect, useEffectEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchApi, getErrorMessage } from "@/lib/api";
+import { downloadApiFile, fetchApi, getErrorMessage } from "@/lib/api";
 import {
   Loader2,
   ArrowLeft,
@@ -18,8 +18,11 @@ import {
   Phone,
   Plus,
   Building,
+  Download,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -30,7 +33,9 @@ export default function WorkerDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [worker, setWorker] = useState<Worker | null>(null);
-  const [activeTab, setActiveTab] = useState<"perfil" | "contratos" | "nominas">("perfil");
+  const [activeTab, setActiveTab] = useState<
+    "perfil" | "contratos" | "nominas"
+  >("perfil");
   const [showContractForm, setShowContractForm] = useState(false);
 
   // Contract form state
@@ -55,7 +60,7 @@ export default function WorkerDetailPage() {
     }
   };
 
-    const loadWorkerEffect = useEffectEvent(loadWorker);
+  const loadWorkerEffect = useEffectEvent(loadWorker);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -82,9 +87,18 @@ export default function WorkerDetailPage() {
       });
       await loadWorker();
     } catch (err: unknown) {
-      alert(getErrorMessage(err, "Error al crear contrato"));
+      toast.error(getErrorMessage(err, "Error al crear contrato"));
     } finally {
       setCreatingContract(false);
+    }
+  };
+
+  const handleSendContract = async (contractId: string) => {
+    try {
+      await fetchApi(`/rrhh/contracts/${contractId}/send`, { method: "POST" });
+      await loadWorker();
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al enviar contrato"));
     }
   };
 
@@ -103,7 +117,10 @@ export default function WorkerDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-muted-foreground">Trabajador no encontrado.</p>
-        <Button onClick={() => router.push("/dashboard/rrhh/workers")} variant="outline">
+        <Button
+          onClick={() => router.push("/dashboard/rrhh/workers")}
+          variant="outline"
+        >
           Volver a la lista
         </Button>
       </div>
@@ -139,12 +156,15 @@ export default function WorkerDetailPage() {
         </Button>
         <div className="flex items-center gap-4 min-w-0">
           <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-bold shrink-0">
-            {worker.user?.firstName?.[0]}{worker.user?.lastName?.[0]}
+            {worker.user?.firstName?.[0]}
+            {worker.user?.lastName?.[0]}
           </div>
           <div className="min-w-0">
             <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
               {worker.user?.firstName} {worker.user?.lastName}
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(worker.status)}`}>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(worker.status)}`}
+              >
                 {getStatusLabel(worker.status)}
               </span>
             </h2>
@@ -202,7 +222,9 @@ export default function WorkerDetailPage() {
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <Mail className="h-4 w-4" /> Email
                 </span>
-                <span className="col-span-2 font-medium">{worker.user?.email}</span>
+                <span className="col-span-2 font-medium">
+                  {worker.user?.email}
+                </span>
               </div>
               <div className="grid grid-cols-3 items-center gap-4">
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
@@ -214,7 +236,9 @@ export default function WorkerDetailPage() {
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <Phone className="h-4 w-4" /> Teléfono
                 </span>
-                <span className="col-span-2 font-medium">{worker.personalPhone || "No registrado"}</span>
+                <span className="col-span-2 font-medium">
+                  {worker.personalPhone || "No registrado"}
+                </span>
               </div>
             </div>
           </div>
@@ -229,13 +253,17 @@ export default function WorkerDetailPage() {
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <Building className="h-4 w-4" /> Departamento
                 </span>
-                <span className="col-span-2 font-medium">{worker.department}</span>
+                <span className="col-span-2 font-medium">
+                  {worker.department}
+                </span>
               </div>
               <div className="grid grid-cols-3 items-center gap-4">
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <Briefcase className="h-4 w-4" /> Cargo
                 </span>
-                <span className="col-span-2 font-medium">{worker.position}</span>
+                <span className="col-span-2 font-medium">
+                  {worker.position}
+                </span>
               </div>
               <div className="grid grid-cols-3 items-center gap-4">
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
@@ -249,7 +277,9 @@ export default function WorkerDetailPage() {
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4" /> Salario Base
                 </span>
-                <span className="col-span-2 font-medium">S/ {formatMoney(worker.baseSalary)}</span>
+                <span className="col-span-2 font-medium">
+                  S/ {formatMoney(worker.baseSalary)}
+                </span>
               </div>
             </div>
           </div>
@@ -261,13 +291,19 @@ export default function WorkerDetailPage() {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Historial de Contratos</h3>
-            <Button onClick={() => setShowContractForm(!showContractForm)} className="gap-2">
+            <Button
+              onClick={() => setShowContractForm(!showContractForm)}
+              className="gap-2"
+            >
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
           </div>
 
           {showContractForm && (
-            <form onSubmit={handleCreateContract} className="bg-muted/30 p-6 rounded-xl border border-border/50 space-y-4">
+            <form
+              onSubmit={handleCreateContract}
+              className="bg-muted/30 p-6 rounded-xl border border-border/50 space-y-4"
+            >
               <h4 className="font-medium flex items-center gap-2 mb-4">
                 <FileText className="h-4 w-4 text-primary" /> Añadir Contrato
               </h4>
@@ -277,7 +313,9 @@ export default function WorkerDetailPage() {
                   <select
                     className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={contractData.type}
-                    onChange={(e) => setContractData({ ...contractData, type: e.target.value })}
+                    onChange={(e) =>
+                      setContractData({ ...contractData, type: e.target.value })
+                    }
                     required
                   >
                     <option value="INDEFINITE">Indefinido</option>
@@ -293,7 +331,12 @@ export default function WorkerDetailPage() {
                     step="0.01"
                     required
                     value={contractData.agreedSalary}
-                    onChange={(e) => setContractData({ ...contractData, agreedSalary: e.target.value })}
+                    onChange={(e) =>
+                      setContractData({
+                        ...contractData,
+                        agreedSalary: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-1">
@@ -302,7 +345,12 @@ export default function WorkerDetailPage() {
                     type="date"
                     required
                     value={contractData.startDate}
-                    onChange={(e) => setContractData({ ...contractData, startDate: e.target.value })}
+                    onChange={(e) =>
+                      setContractData({
+                        ...contractData,
+                        startDate: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-1">
@@ -310,24 +358,44 @@ export default function WorkerDetailPage() {
                   <Input
                     type="date"
                     value={contractData.endDate}
-                    onChange={(e) => setContractData({ ...contractData, endDate: e.target.value })}
+                    onChange={(e) =>
+                      setContractData({
+                        ...contractData,
+                        endDate: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="md:col-span-2 space-y-1">
                   <Label>Observaciones</Label>
                   <Input
                     value={contractData.observations}
-                    onChange={(e) => setContractData({ ...contractData, observations: e.target.value })}
+                    onChange={(e) =>
+                      setContractData({
+                        ...contractData,
+                        observations: e.target.value,
+                      })
+                    }
                     placeholder="Detalles adicionales..."
                   />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="ghost" onClick={() => setShowContractForm(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowContractForm(false)}
+                >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={creatingContract} className="gap-2">
-                  {creatingContract && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Button
+                  type="submit"
+                  disabled={creatingContract}
+                  className="gap-2"
+                >
+                  {creatingContract && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                   Guardar Contrato
                 </Button>
               </div>
@@ -337,7 +405,10 @@ export default function WorkerDetailPage() {
           <div className="space-y-4">
             {(worker.contracts?.length ?? 0) > 0 ? (
               worker.contracts?.map((contract: Contract, index: number) => (
-                <div key={contract.id} className="bg-card border border-border/50 rounded-xl p-5 flex flex-col md:flex-row gap-4 justify-between md:items-center">
+                <div
+                  key={contract.id}
+                  className="bg-card border border-border/50 rounded-xl p-5 flex flex-col md:flex-row gap-4 justify-between md:items-center"
+                >
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
                       <FileText className="h-5 w-5 text-primary" />
@@ -345,31 +416,86 @@ export default function WorkerDetailPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold">
-                          {contract.type === "INDEFINITE" && "Contrato Indefinido"}
-                          {contract.type === "FIXED_TERM" && "Contrato a Plazo Fijo"}
-                          {contract.type === "INTERNSHIP" && "Convenio de Prácticas"}
-                          {contract.type === "FREELANCE" && "Locación de Servicios"}
+                          {contract.type === "INDEFINITE" &&
+                            "Contrato Indefinido"}
+                          {contract.type === "FIXED_TERM" &&
+                            "Contrato a Plazo Fijo"}
+                          {contract.type === "INTERNSHIP" &&
+                            "Convenio de Prácticas"}
+                          {contract.type === "FREELANCE" &&
+                            "Locación de Servicios"}
                         </h4>
                         {contract.isActive && index === 0 && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 text-green-500">
                             VIGENTE
                           </span>
                         )}
+                        {!contract.isActive && contract.status && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">
+                            {contract.status === "SENT"
+                              ? "PENDIENTE DE FIRMA"
+                              : contract.status === "SIGNED"
+                                ? "FIRMADO"
+                                : contract.status === "APPROVED"
+                                  ? "APROBADO"
+                                  : contract.status}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
-                        <span>Inicio: {new Date(contract.startDate).toLocaleDateString("es-ES")}</span>
+                        <span>
+                          Inicio:{" "}
+                          {new Date(contract.startDate).toLocaleDateString(
+                            "es-ES",
+                          )}
+                        </span>
                         {contract.endDate && (
                           <>
                             <span>→</span>
-                            <span>Fin: {new Date(contract.endDate).toLocaleDateString("es-ES")}</span>
+                            <span>
+                              Fin:{" "}
+                              {new Date(contract.endDate).toLocaleDateString(
+                                "es-ES",
+                              )}
+                            </span>
                           </>
                         )}
                       </p>
                     </div>
                   </div>
                   <div className="text-right md:text-left flex flex-col items-end md:items-start">
-                    <span className="text-sm text-muted-foreground">Sueldo Acordado</span>
-                    <span className="font-bold text-lg">S/ {formatMoney(contract.agreedSalary)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Sueldo Acordado
+                    </span>
+                    <span className="font-bold text-lg">
+                      S/ {formatMoney(contract.agreedSalary)}
+                    </span>
+                    <div className="mt-2 flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() =>
+                          void downloadApiFile(
+                            `/rrhh/contracts/${contract.id}/pdf`,
+                            `contrato-${contract.id}.pdf`,
+                          )
+                        }
+                      >
+                        <Download className="h-3.5 w-3.5" /> PDF
+                      </Button>
+                      {(contract.status === "DRAFT" ||
+                        contract.status === "REJECTED") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => void handleSendContract(contract.id)}
+                        >
+                          <Send className="h-3.5 w-3.5" /> Enviar
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -385,7 +511,9 @@ export default function WorkerDetailPage() {
       {/* Tab Content: Nóminas */}
       {activeTab === "nominas" && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Historial de Nóminas Pagadas</h3>
+          <h3 className="text-lg font-semibold">
+            Historial de Nóminas Pagadas
+          </h3>
           {(worker.payrolls?.length ?? 0) > 0 ? (
             <div className="rounded-xl border border-border/50 overflow-hidden">
               <table className="w-full text-sm">
@@ -394,24 +522,39 @@ export default function WorkerDetailPage() {
                     <th className="px-4 py-3 font-medium">Período</th>
                     <th className="px-4 py-3 font-medium">Estado</th>
                     <th className="px-4 py-3 font-medium">Fecha de Pago</th>
-                    <th className="px-4 py-3 font-medium text-right">Total Pagado</th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      Total Pagado
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {worker.payrolls?.map((payroll: Payroll) => (
-                    <tr key={payroll.id} className="bg-card hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{payroll.period}</td>
+                    <tr
+                      key={payroll.id}
+                      className="bg-card hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium">
+                        {payroll.period}
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          payroll.status === "PAID" ? "bg-green-500/10 text-green-500" :
-                          payroll.status === "PENDING" ? "bg-amber-500/10 text-amber-500" :
-                          "bg-slate-500/10 text-slate-500"
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            payroll.status === "PAID"
+                              ? "bg-green-500/10 text-green-500"
+                              : payroll.status === "PENDING"
+                                ? "bg-amber-500/10 text-amber-500"
+                                : "bg-slate-500/10 text-slate-500"
+                          }`}
+                        >
                           {payroll.status === "PAID" ? "Pagado" : "Pendiente"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {payroll.paymentDate ? new Date(payroll.paymentDate).toLocaleDateString("es-ES") : "-"}
+                        {payroll.paymentDate
+                          ? new Date(payroll.paymentDate).toLocaleDateString(
+                              "es-ES",
+                            )
+                          : "-"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-medium">
                         S/ {formatMoney(payroll.totalAmount)}

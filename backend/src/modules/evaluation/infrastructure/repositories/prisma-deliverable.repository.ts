@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { Injectable } from '@nestjs/common';
+import { DeliverableStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service';
 import { IDeliverableRepository } from '../../domain/repositories/deliverable.repository.interface';
 import {
@@ -68,7 +69,7 @@ export class PrismaDeliverableRepository implements IDeliverableRepository {
         fileUrl: data.fileUrl,
         fileName: data.fileName,
         comment: data.comment,
-        status: data.status as any,
+        status: data.status as DeliverableStatus,
       },
     });
 
@@ -78,11 +79,13 @@ export class PrismaDeliverableRepository implements IDeliverableRepository {
   async updateStatus(id: string, status: string): Promise<void> {
     await this.prisma.deliverable.update({
       where: { id },
-      data: { status: status as any },
+      data: { status: status as DeliverableStatus },
     });
   }
 
-  private toDomainEntity(raw: any): DeliverableEntity {
+  private toDomainEntity(
+    raw: Prisma.DeliverableGetPayload<Prisma.DeliverableDefaultArgs>,
+  ): DeliverableEntity {
     return new DeliverableEntity({
       id: raw.id,
       evaluationId: raw.evaluationId,

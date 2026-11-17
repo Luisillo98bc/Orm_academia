@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Lock, ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { getErrorMessage } from "@/lib/api";
+import { API_URL, getErrorMessage } from "@/lib/api";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -16,16 +16,14 @@ function ResetPasswordForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
       setError("Las contraseñas no coinciden");
       return;
     }
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
+    if (password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres");
       return;
     }
 

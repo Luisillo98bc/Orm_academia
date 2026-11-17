@@ -34,7 +34,9 @@ interface DepartmentSummary {
 interface RrhhStats {
   totalWorkers: number;
   activeWorkers: number;
+  inactiveWorkers?: number;
   onVacation: number;
+  activeContracts?: number;
   totalPayrollPaid: Money;
   pendingPayrolls: number;
   expiringContracts: ExpiringContract[];
@@ -154,7 +156,7 @@ export default function RrhhDashboardPage() {
             <FileText className="h-4 w-4 text-blue-500" />
           </div>
           <div className="text-2xl font-bold">
-            {stats?.activeWorkers || 0}
+              {stats?.activeContracts || 0}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             Contratos vigentes actualmente

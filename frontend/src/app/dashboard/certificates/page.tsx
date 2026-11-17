@@ -17,11 +17,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/dashboard/page-header";
+import type { CertificateTemplateSettings } from "@/types/domain";
 
 interface Certificate {
   id: string;
   code: string;
   issueDate: string;
+  type?: "COMPLETION" | "GRADES";
   enrollment: {
     user: { id: string; firstName: string; lastName: string; email: string };
     cohort: {
@@ -42,6 +45,15 @@ interface PendingEnrollment {
   completedAt: string;
 }
 
+const defaultTemplate: CertificateTemplateSettings = {
+  version: "v1",
+  primaryColor: "#0ea5e9",
+  academyLabel: "ACADEMIA VIRTUAL",
+  completionTitle: "CERTIFICADO DE FINALIZACIÓN",
+  gradesTitle: "CERTIFICADO DE NOTAS",
+  signatureLabel: "Dirección Académica",
+};
+
 export default function CertificatesAdminPage() {
   const [loading, setLoading] = useState(true);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -51,6 +63,11 @@ export default function CertificatesAdminPage() {
   const [issuing, setIssuing] = useState<string | null>(null);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [certificateType, setCertificateType] = useState<
+    "COMPLETION" | "GRADES"
+  >("COMPLETION");
+  const [template, setTemplate] = useState<CertificateTemplateSettings>(defaultTemplate);
+  const [cohortFilter, setCohortFilter] = useState("");
 
   const loadData = async () => {
     setLoading(true);
@@ -61,6 +78,8 @@ export default function CertificatesAdminPage() {
       ]);
       setCertificates(certsRes.data || []);
       setPending(pendingRes.data || []);
+      const settings = await fetchApi("/settings");
+      setTemplate({ ...defaultTemplate, ...(settings?.certificateTemplate ?? {}) });
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Error al cargar datos"));
     } finally {
@@ -82,7 +101,7 @@ export default function CertificatesAdminPage() {
     try {
       await fetchApi("/certificates/manual", {
         method: "POST",
-        body: JSON.stringify({ enrollmentId }),
+        body: JSON.stringify({ enrollmentId, certificateType }),
       });
       setSuccess("Certificado emitido exitosamente");
       await loadData();
@@ -94,6 +113,7 @@ export default function CertificatesAdminPage() {
   };
 
   const filteredCerts = certificates.filter((c) => {
+    if (cohortFilter && c.enrollment.cohort.name !== cohortFilter) return false;
     const term = search.toLowerCase();
     return (
       c.code.toLowerCase().includes(term) ||
@@ -105,6 +125,7 @@ export default function CertificatesAdminPage() {
   });
 
   const filteredPending = pending.filter((p) => {
+    if (cohortFilter && p.cohort.name !== cohortFilter) return false;
     const term = search.toLowerCase();
     return (
       p.user.firstName.toLowerCase().includes(term) ||
@@ -127,16 +148,11 @@ export default function CertificatesAdminPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-          <Award className="h-8 w-8" />
-          Gestión de Certificados
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Emite y administra los certificados de finalización de curso.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Cierre académico"
+        title="Gestión de certificados"
+        description="Emite y administra los certificados de finalización de curso."
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -200,7 +216,73 @@ export default function CertificatesAdminPage() {
         </div>
       )}
 
+      <details className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <summary className="cursor-pointer text-sm font-semibold text-primary">Consultar vista previa de la plantilla</summary>
+        <div className="mt-5">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold">
+              <Award className="h-4 w-4 text-primary" />
+              Vista previa de plantilla
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Así se organizará el documento PDF. Los datos reales se incorporan
+              al emitirlo.
+            </p>
+          </div>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+            Plantilla {template.version}
+          </span>
+        </div>
+        <div className="mx-auto max-w-3xl rounded-lg border-4 bg-background p-5 shadow-inner sm:p-8" style={{ borderColor: `${template.primaryColor}55` }}>
+          <div className="border border-border/70 p-5 text-center sm:p-8">
+            <p className="text-xs font-bold tracking-[0.28em]" style={{ color: template.primaryColor }}>
+              {template.academyLabel}
+            </p>
+            <div className="mx-auto my-4 h-px w-24 bg-primary/40" />
+            <p className="text-lg font-bold uppercase tracking-wide text-foreground sm:text-2xl">
+              {certificateType === "GRADES" ? template.gradesTitle : template.completionTitle}
+            </p>
+            <p className="mt-5 text-xs text-muted-foreground">
+              Se otorga el presente documento a:
+            </p>
+            <p className="mt-2 font-serif text-xl font-semibold text-foreground sm:text-3xl">
+              Nombre del estudiante
+            </p>
+            <p className="mx-auto mt-4 max-w-xl text-xs leading-5 text-muted-foreground">
+              {certificateType === "GRADES"
+                ? "Se deja constancia de las calificaciones obtenidas en el curso registrado."
+                : "Por haber completado satisfactoriamente el curso registrado."}
+            </p>
+            <p className="mt-4 text-base font-semibold" style={{ color: template.primaryColor }}>
+              Nombre del curso
+            </p>
+            <div className="mt-6 flex items-end justify-between gap-4 text-left text-[10px] text-muted-foreground">
+              <span>
+                Fecha de emisión
+                <br />
+                <strong>DD / MM / AAAA</strong>
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center border-2 border-dashed border-muted-foreground/50 text-center">
+                QR
+                <br />
+                VERIF.
+              </span>
+              <span className="text-right">
+                Código
+                <br />
+                <strong>CERT-XXXXXXXX</strong>
+              </span>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">{template.signatureLabel}</p>
+          </div>
+        </div>
+        </div>
+      </details>
+
       {/* Tabs + Search */}
+      <p className="workspace-note">La lista de pendientes reúne matrículas finalizadas que pueden solicitar emisión. El sistema verifica los requisitos al emitir cada certificado.</p>
+      <label className="workspace-toolbar text-sm">Filtrar por cohorte<select aria-label="Filtrar certificados por cohorte" value={cohortFilter} onChange={event => setCohortFilter(event.target.value)} className="rounded-lg border border-border bg-background px-3 py-2"><option value="">Todas las cohortes</option>{Array.from(new Set([...certificates.map(c => c.enrollment.cohort.name), ...pending.map(p => p.cohort.name)])).sort().map(name => <option key={name}>{name}</option>)}</select></label>
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2">
           <Button
@@ -220,14 +302,32 @@ export default function CertificatesAdminPage() {
             Pendientes ({pending.length})
           </Button>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar..."
-            className="pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            Plantilla
+            <select
+              aria-label="Tipo de certificado"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              value={certificateType}
+              onChange={(event) =>
+                setCertificateType(
+                  event.target.value as "COMPLETION" | "GRADES",
+                )
+              }
+            >
+              <option value="COMPLETION">Finalización</option>
+              <option value="GRADES">Notas</option>
+            </select>
+          </label>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -310,7 +410,7 @@ export default function CertificatesAdminPage() {
                             className="gap-1 text-emerald-600"
                             onClick={() =>
                               void downloadApiFile(
-                                `/certificates/${cert.id}/pdf`,
+                                `/certificates/${cert.code}/pdf`,
                                 `certificado-${cert.code}.pdf`,
                               )
                             }
@@ -376,7 +476,7 @@ export default function CertificatesAdminPage() {
                       <td className="p-4 text-muted-foreground">
                         {enr.completedAt
                           ? new Date(enr.completedAt).toLocaleDateString(
-                              "es-ES"
+                              "es-ES",
                             )
                           : "—"}
                       </td>

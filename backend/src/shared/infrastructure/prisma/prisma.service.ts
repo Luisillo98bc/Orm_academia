@@ -4,7 +4,11 @@
 // Singleton reutilizable por todos los módulos del monolito.
 // ============================================================================
 
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -14,14 +18,17 @@ import { PrismaClient } from '@prisma/client';
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
+  implements OnModuleInit, OnApplicationShutdown
 {
   constructor() {
+    const logQueries = process.env.PRISMA_LOG_QUERIES === 'true';
     super({
       log:
         process.env.NODE_ENV === 'development'
-          ? ['query', 'info', 'warn', 'error']
-          : ['error'],
+          ? logQueries
+            ? ['query', 'info', 'warn', 'error']
+            : ['info', 'warn', 'error']
+          : ['warn', 'error'],
     });
   }
 
@@ -29,7 +36,7 @@ export class PrismaService
     await this.$connect();
   }
 
-  async onModuleDestroy(): Promise<void> {
+  async onApplicationShutdown(): Promise<void> {
     await this.$disconnect();
   }
 }

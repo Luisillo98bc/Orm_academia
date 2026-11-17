@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { UserEntity } from '../entities/user.entity';
+import type { PaginatedResult } from '../../../../shared/pagination/pagination';
 
 /**
  * Puerto (interfaz) del repositorio de usuarios.
@@ -22,6 +23,16 @@ export interface IUserRepository {
    * @returns La entidad User o null si no existe / está eliminado
    */
   findByEmail(email: string): Promise<UserEntity | null>;
+
+  findByGoogleSubject(subject: string): Promise<UserEntity | null>;
+
+  linkGoogleSubject(
+    userId: string,
+    subject: string,
+    profilePicture?: string | null,
+  ): Promise<UserEntity>;
+
+  replaceRoles(userId: string, roleName: string): Promise<UserEntity>;
 
   /**
    * Busca un usuario por ID incluyendo sus roles y permisos.
@@ -54,6 +65,8 @@ export interface IUserRepository {
       firstName: string;
       lastName: string;
       profilePicture?: string | null;
+      googleSubject?: string | null;
+      emailVerifiedAt?: Date | null;
     },
     roleName: string,
   ): Promise<UserEntity>;
@@ -70,6 +83,13 @@ export interface IUserRepository {
    */
   findAll(): Promise<UserEntity[]>;
 
+  findPage(
+    roleName: string | undefined,
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<PaginatedResult<UserEntity>>;
+
   /**
    * Actualiza los datos de un usuario.
    */
@@ -81,6 +101,14 @@ export interface IUserRepository {
       email?: string;
       profilePicture?: string | null;
       isActive?: boolean;
+      dni?: string | null;
+      phone?: string | null;
+      address?: string | null;
+      district?: string | null;
+      province?: string | null;
+      department?: string | null;
+      passwordHash?: string;
+      roles?: string[];
     },
   ): Promise<UserEntity>;
 

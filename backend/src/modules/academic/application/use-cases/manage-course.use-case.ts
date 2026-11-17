@@ -19,6 +19,10 @@ export class ManageCourseUseCase {
     return this.courseRepository.findAll();
   }
 
+  async getPublicCourses(): Promise<CourseEntity[]> {
+    return this.courseRepository.findPublic();
+  }
+
   async updateCourse(
     id: string,
     data: {
@@ -31,6 +35,7 @@ export class ManageCourseUseCase {
       level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
       durationHours?: number;
       imageUrl?: string | null;
+      isPublished?: boolean;
     },
   ): Promise<CourseEntity> {
     return this.courseRepository.update(id, data);

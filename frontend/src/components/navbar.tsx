@@ -9,7 +9,8 @@ import { GraduationCap, LogOut, LayoutDashboard, Menu, X, ArrowRight } from "luc
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
-import { API_URL } from "@/lib/api";
+import { fetchCatalogApi } from "@/lib/catalog-cache";
+import { getMediaUrl } from "@/lib/media";
 import Image from "next/image";
 
 export function Navbar() {
@@ -18,133 +19,175 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+
+  const logoUrl = getMediaUrl(settings?.logoUrl);
 
   // Hide navbar on dashboard routes (dashboard has its own header)
   const isDashboard = pathname?.startsWith("/dashboard");
+  const isHome = pathname === "/";
+  const isMobileHeroOverlay = isHome && !scrolled && !mobileMenuOpen;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 15);
+    handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
-    fetch(`${API_URL}/settings`)
-      .then((res) => {
-        if (!res.ok) return null;
-        return res.json();
-      })
+    if (isDashboard) return;
+    let mounted = true;
+    fetchCatalogApi<PlatformSettings>("/settings/public", "settings")
       .then((data) => {
-        if (data) setSettings(data);
+        if (mounted && data) setSettings(data);
       })
-      .catch((err) => console.error("Error loading settings:", err));
-  }, []);
-
+      .catch(() => {
+        if (mounted) setSettings(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isDashboard]);
 
   if (isDashboard) return null;
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
-          ? "border-b border-border/50 bg-background/80 backdrop-blur-xl shadow-sm"
-          : "border-b border-border/20 bg-background/40 backdrop-blur-md"
+      className={`public-navbar z-50 w-full transition-all duration-300 ${
+        isHome ? "fixed inset-x-0 top-0 xl:sticky" : "sticky top-0"
+      } ${
+        isMobileHeroOverlay
+          ? "public-navbar--hero-overlay border-b border-transparent xl:border-border/40 xl:bg-background/75 xl:backdrop-blur-md"
+          : scrolled
+            ? "border-b border-border/70 bg-background/90 shadow-sm backdrop-blur-xl"
+            : "border-b border-border/40 bg-background/75 backdrop-blur-md"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="public-navbar-inner mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          {settings?.logoUrl ? (
-            <Image unoptimized width={160} height={32} src={settings.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
+        <Link href="/" className="group flex min-w-0 items-center gap-2.5">
+          {logoUrl && failedLogoUrl !== logoUrl ? (
+            <Image
+              unoptimized
+              width={36}
+              height={36}
+              src={logoUrl}
+              alt={settings?.academyName || "Logo de la academia"}
+              className="h-8 w-8 shrink-0 rounded-lg object-contain shadow-sm xl:shadow-none"
+              onError={() => setFailedLogoUrl(logoUrl)}
+            />
           ) : (
-            <div className="h-9 w-9 rounded-xl bg-foreground text-background flex items-center justify-center font-bold shadow-sm transition-transform duration-300 group-hover:scale-105">
+            <div className="public-brand-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary font-bold text-primary-foreground shadow-sm transition-colors duration-200 group-hover:bg-primary/90">
               <GraduationCap className="h-5 w-5" />
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-lg tracking-tight text-foreground">
-              Academia<span className="font-light text-muted-foreground ml-0.5">Virtual</span>
-            </span>
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              PRO
-            </span>
-          </div>
+          <span
+            className={`truncate text-base font-bold tracking-tight sm:text-lg ${
+              isMobileHeroOverlay
+                ? "text-white drop-shadow-sm xl:text-foreground xl:drop-shadow-none"
+                : "text-foreground"
+            }`}
+          >
+            {settings?.academyName || "Academia Virtual"}
+          </span>
         </Link>
 
         {/* Center Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1.5 bg-muted/40 p-1.5 rounded-full border border-border/40">
+        <nav aria-label="Navegación principal" className="hidden items-center gap-7 xl:flex">
           <Link
-            href="/#cursos"
-            className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-background/90 transition-all"
+            href="/cursos"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-accent"
           >
-            Cursos
+            Programas
           </Link>
           <Link
-            href="/#beneficios"
-            className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-background/90 transition-all"
+            href="/#como-funciona"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-accent"
           >
-            Nosotros
+            Metodología
+          </Link>
+          <Link
+            href="/#resultados"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-accent"
+          >
+            Resultados
           </Link>
           <Link
             href="/#faq"
-            className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-background/90 transition-all"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-accent"
           >
             Preguntas
           </Link>
           <Link
             href="/#contacto"
-            className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-background/90 transition-all"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-accent"
           >
             Contacto
           </Link>
         </nav>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="hidden xl:block">
+            <ThemeToggle />
+          </div>
+
+          <Link
+            href={user ? "/dashboard" : "/cursos"}
+            className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-bold shadow-sm transition xl:hidden ${
+              isMobileHeroOverlay
+                ? "bg-white text-slate-950 hover:bg-slate-100"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            }`}
+          >
+            {user ? "Ir al Campus" : "Ver cursos"}
+          </Link>
 
           {user ? (
-            <div className="hidden sm:flex items-center gap-2">
-              <Link href="/dashboard">
-                <Button size="sm" className="rounded-full h-10 px-5 text-sm font-semibold shadow-sm gap-1.5">
+            <div className="hidden xl:flex items-center gap-2">
+              <Button asChild size="sm" className="h-10 gap-1.5 px-5 text-sm font-semibold shadow-sm">
+                <Link href="/dashboard">
                   <LayoutDashboard className="h-4 w-4" />
                   <span>Ir al Campus</span>
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={logout}
-                className="h-10 w-10 p-0 rounded-full text-muted-foreground hover:text-destructive"
+                className="h-10 w-10 rounded-full p-0 text-muted-foreground hover:text-destructive"
                 title="Cerrar sesión"
               >
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-2">
-              <Link href="/login">
-                <Button variant="ghost" size="sm" className="rounded-full h-10 px-4 text-sm font-medium text-muted-foreground hover:text-foreground">
+            <div className="hidden xl:flex items-center gap-2">
+              <Button asChild variant="ghost" size="sm" className="h-10 px-4 text-sm font-medium text-muted-foreground hover:text-accent">
+                <Link href="/login">
                   Ingresar
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button
-                  size="sm"
-                  className="rounded-full h-10 px-5 text-sm font-semibold bg-foreground text-background hover:bg-foreground/90 transition-all shadow-sm gap-1.5 group"
-                >
-                  <span>Registrarse</span>
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="h-10 gap-1.5 px-5 text-sm font-semibold shadow-none group">
+                <Link href="/cursos">
+                  <span>Ver programas</span>
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           )}
 
           {/* Mobile Toggle Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
+            className={`focus-ring rounded-xl p-2 transition-colors xl:hidden ${
+              isMobileHeroOverlay
+                ? "text-white hover:bg-white/15"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
             aria-label="Menú principal"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -154,21 +197,28 @@ export function Navbar() {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-background/95 backdrop-blur-xl px-4 py-4 space-y-3 animate-in slide-in-from-top duration-200">
+        <div id="mobile-navigation" className="space-y-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur-xl animate-in slide-in-from-top duration-200 xl:hidden">
           <nav className="flex flex-col gap-1 text-base font-medium">
             <Link
-              href="/#cursos"
+              href="/cursos"
               onClick={() => setMobileMenuOpen(false)}
               className="px-3 py-2.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
             >
-              Cursos
+              Programas
             </Link>
             <Link
-              href="/#beneficios"
+              href="/#como-funciona"
               onClick={() => setMobileMenuOpen(false)}
               className="px-3 py-2.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
             >
-              Nosotros
+              Metodología
+            </Link>
+            <Link
+              href="/#resultados"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              Resultados
             </Link>
             <Link
               href="/#faq"
@@ -186,14 +236,18 @@ export function Navbar() {
             </Link>
           </nav>
           <div className="pt-3 border-t border-border flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1 pb-1">
+              <span className="text-xs font-medium text-muted-foreground">Apariencia</span>
+              <ThemeToggle />
+            </div>
             {user ? (
               <>
-                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full h-10 rounded-xl justify-center font-medium gap-2">
+                <Button asChild className="w-full h-10 rounded-xl justify-center font-medium gap-2">
+                  <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                     <LayoutDashboard className="h-4 w-4" />
                     <span>Ir al Campus</span>
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -208,16 +262,16 @@ export function Navbar() {
               </>
             ) : (
               <>
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full h-10 rounded-xl font-medium">
+                <Button asChild variant="outline" className="w-full h-10 rounded-xl font-medium">
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                     Ingresar
-                  </Button>
-                </Link>
-                <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full h-10 rounded-xl font-medium bg-foreground text-background">
-                    Registrarse Gratis
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
+                <Button asChild className="w-full h-10 rounded-xl font-medium bg-foreground text-background">
+                  <Link href="/cursos" onClick={() => setMobileMenuOpen(false)}>
+                    Ver programas
+                  </Link>
+                </Button>
               </>
             )}
           </div>

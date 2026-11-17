@@ -18,6 +18,7 @@ import { USER_REPOSITORY } from './domain/repositories/user.repository.interface
 
 // Application — Casos de uso
 import { LoginUseCase } from './application/use-cases/login.use-case';
+import { GoogleLoginUseCase } from './application/use-cases/google-login.use-case';
 import { RegisterUseCase } from './application/use-cases/register.use-case';
 import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
 import { AdminCreateUserUseCase } from './application/use-cases/admin-create-user.use-case';
@@ -27,6 +28,8 @@ import { PrismaUserRepository } from './infrastructure/repositories/prisma-user.
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
 import { AuthCookiesService } from './infrastructure/auth-cookies.service';
 import { RefreshSessionService } from './infrastructure/refresh-session.service';
+import { TwoFactorService } from './infrastructure/two-factor.service';
+import { AuthRevocationService } from './infrastructure/auth-revocation.service';
 
 // Presentation — Controladores
 import { AuthController } from './presentation/controllers/auth.controller';
@@ -56,6 +59,7 @@ import { MailService } from '../../shared/infrastructure/mail/mail.service';
   providers: [
     // ── Casos de uso ──
     LoginUseCase,
+    GoogleLoginUseCase,
     RegisterUseCase,
     ListUsersUseCase,
     AdminCreateUserUseCase,
@@ -67,6 +71,8 @@ import { MailService } from '../../shared/infrastructure/mail/mail.service';
     JwtStrategy,
     AuthCookiesService,
     RefreshSessionService,
+    TwoFactorService,
+    AuthRevocationService,
 
     // ── Binding: Puerto → Adaptador (Inyección de Dependencias) ──
     // El dominio define IUserRepository (puerto).
@@ -76,6 +82,14 @@ import { MailService } from '../../shared/infrastructure/mail/mail.service';
       useClass: PrismaUserRepository,
     },
   ],
-  exports: [JwtModule, PassportModule, AuthCookiesService],
+  exports: [
+    RefreshSessionService,
+    JwtModule,
+    PassportModule,
+    AuthCookiesService,
+    TwoFactorService,
+    MailService,
+    AuthRevocationService,
+  ],
 })
 export class AuthModule {}

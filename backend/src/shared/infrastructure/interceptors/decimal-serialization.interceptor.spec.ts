@@ -11,6 +11,7 @@ describe('DecimalSerializationInterceptor', () => {
         of({
           amount: new Prisma.Decimal('10.5'),
           payrolls: [{ totalAmount: new Prisma.Decimal('2000') }],
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
         }),
     } as CallHandler;
 
@@ -21,6 +22,7 @@ describe('DecimalSerializationInterceptor', () => {
     expect(result).toEqual({
       amount: '10.50',
       payrolls: [{ totalAmount: '2000.00' }],
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
     });
   });
 });

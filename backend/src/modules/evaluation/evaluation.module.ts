@@ -23,6 +23,8 @@ import {
   GradeDeliverableUseCase,
   CreateEvaluationUseCase,
   GetCohortEvaluationsUseCase,
+  UpdateEvaluationUseCase,
+  DeleteEvaluationUseCase,
 } from './application/use-cases';
 
 // Infrastructure — Implementaciones
@@ -33,6 +35,8 @@ import { LocalStorageService } from './infrastructure/services/local-storage.ser
 
 // Presentation — Controladores
 import { EvaluationController } from './presentation/controllers/evaluation.controller';
+import { ClassroomController } from './presentation/controllers/classroom.controller';
+import { ClassroomService } from './application/services/classroom.service';
 
 @Module({
   imports: [
@@ -40,13 +44,16 @@ import { EvaluationController } from './presentation/controllers/evaluation.cont
     AcademicModule,
     CommunicationModule,
   ],
-  controllers: [EvaluationController],
+  controllers: [EvaluationController, ClassroomController],
   providers: [
+    ClassroomService,
     // ── Casos de uso ──
     SubmitDeliverableUseCase,
     GradeDeliverableUseCase,
     CreateEvaluationUseCase,
     GetCohortEvaluationsUseCase,
+    UpdateEvaluationUseCase,
+    DeleteEvaluationUseCase,
 
     // ── Bindings: Puerto → Adaptador ──
     {

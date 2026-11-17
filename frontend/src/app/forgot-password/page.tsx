@@ -3,15 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { GraduationCap, Mail, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
-import { getErrorMessage } from "@/lib/api";
+import { API_URL, getErrorMessage } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +71,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <div className="text-center mb-6">
-                <h2 className="text-xl font-bold mb-1">¿Olvidaste tu contraseña?</h2>
+                <h1 className="text-xl font-bold mb-1">¿Olvidaste tu contraseña?</h1>
                 <p className="text-sm text-muted-foreground">
                   Ingresa tu correo electrónico y te enviaremos un enlace para restablecerla.
                 </p>

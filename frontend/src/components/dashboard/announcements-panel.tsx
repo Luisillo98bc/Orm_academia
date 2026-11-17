@@ -28,8 +28,8 @@ export function AnnouncementsPanel() {
   if (announcements.length === 0) return null;
 
   return (
-    <div className="mb-8 space-y-4">
-      <h3 className="text-lg font-bold flex items-center gap-2 text-primary">
+    <section className="mb-8 space-y-4" aria-labelledby="announcements-title">
+      <h3 id="announcements-title" className="text-xl font-bold flex items-center gap-2 text-foreground">
         <Bell className="h-5 w-5" /> Tablón de Anuncios
       </h3>
       <div className="grid gap-4 md:grid-cols-2">
@@ -46,7 +46,7 @@ export function AnnouncementsPanel() {
           }
 
           return (
-            <div key={announcement.id} className={`p-4 rounded-xl border flex gap-4 ${colorClass}`}>
+            <div key={announcement.id} className={`dashboard-panel flex gap-4 p-5 ${colorClass}`}>
               <div className="mt-1">
                 <Icon className="h-5 w-5" />
               </div>
@@ -61,6 +61,6 @@ export function AnnouncementsPanel() {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

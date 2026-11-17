@@ -32,6 +32,7 @@ export class LocalStorageService implements IStorageService {
     path: string,
     originalName: string,
   ): Promise<StorageResult> {
+    await Promise.resolve();
     // Si es una URL (string), la validamos y retornamos
     if (typeof fileOrUrl === 'string') {
       this.logger.log(
@@ -59,6 +60,7 @@ export class LocalStorageService implements IStorageService {
   }
 
   async isAccessible(url: string): Promise<boolean> {
+    await Promise.resolve();
     // Simulación: siempre accesible en desarrollo
     this.logger.debug(`[Storage] Verificando accesibilidad de: ${url}`);
 

@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { fetchApi } from "@/lib/api";
+import { useState, useMemo } from "react";
 import {
-  ChevronLeft, ChevronRight, CalendarDays, Video,
-  ClipboardList, Loader2, ExternalLink
+  ChevronLeft, ChevronRight, Video,
+  ClipboardList, Loader2, ExternalLink, Clock3
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SummaryStrip } from "@/components/dashboard/workspace-tabs";
+import { useRemoteData } from "@/lib/use-remote-data";
+import { DataSection } from "@/components/dashboard/data-section";
+import { Button } from "@/components/ui/button";
 
 interface CalendarEvent {
   id: string;
@@ -25,17 +29,14 @@ const MONTH_NAMES = [
 const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export default function CalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const resource = useRemoteData<CalendarEvent[]>("/academic/calendar-events");
+  const events = resource.data || [];
+  const loading = resource.loading;
+  const [course, setCourse] = useState("");
+  const [cohort, setCohort] = useState("");
+  const [view, setView] = useState("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filter, setFilter] = useState<"all" | "class" | "evaluation">("all");
-
-  useEffect(() => {
-    fetchApi("/academic/calendar-events")
-      .then(setEvents)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -57,18 +58,33 @@ export default function CalendarPage() {
       const d = new Date(e.date);
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day
         && (filter === "all" || e.type === filter);
+
     });
   };
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const today = new Date();
   const isToday = (day: number) =>
     day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
   // Eventos del día seleccionado (hoy por defecto)
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
-  const selectedEvents = selectedDay ? getEventsForDay(selectedDay) : [];
+  const matches = (event: CalendarEvent) => (!course || event.courseName === course) && (!cohort || event.cohortName === cohort);
+  const selectedEvents = selectedDay ? getEventsForDay(selectedDay).filter(matches) : [];
+  const monthEvents = events.filter(event => { const date = new Date(event.date); return date.getFullYear() === year && date.getMonth() === month && matches(event) && (filter === "all" || event.type === filter); }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+    setSelectedDay(1);
+  };
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+    setSelectedDay(1);
+  };
+  const goToToday = () => {
+    const now = new Date();
+    setCurrentDate(now);
+    setSelectedDay(now.getDate());
+  };
 
   if (loading) {
     return (
@@ -80,42 +96,46 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarDays className="h-6 w-6 text-primary" />
-            Calendario Académico
-          </h2>
-          <p className="text-muted-foreground text-sm">Sesiones de clase y fechas de entrega</p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader eyebrow="Agenda" title="Calendario académico" description="Consulta sesiones de clase y fechas de entrega." actions={<div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={goToToday}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border bg-background hover:bg-muted transition-colors"
+          >
+            Hoy
+          </button>
           {(["all", "class", "evaluation"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 filter === f
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              {f === "all" ? "Todos" : f === "class" ? "🎓 Clases" : "📝 Evaluaciones"}
+              {f === "class" && <Video className="h-3.5 w-3.5" />}
+              {f === "evaluation" && <ClipboardList className="h-3.5 w-3.5" />}
+              {f === "all" ? "Todos" : f === "class" ? "Clases" : "Evaluaciones"}
             </button>
           ))}
-        </div>
-      </div>
-
+        </div>} />
+      <SummaryStrip items={[{ label: "Eventos del mes", value: monthEvents.length }, { label: "Sesiones de clase", value: monthEvents.filter(event => event.type === "class").length }, { label: "Evaluaciones y entregas", value: monthEvents.filter(event => event.type === "evaluation").length }]} />
+      <div className="workspace-toolbar"><label>Curso<select value={course} onChange={event => { setCourse(event.target.value); setCohort(""); }}><option value="">Todos los cursos</option>{Array.from(new Set(events.map(event => event.courseName))).map(name => <option key={name}>{name}</option>)}</select></label><label>Cohorte<select value={cohort} onChange={event => setCohort(event.target.value)}><option value="">Todas las cohortes</option>{Array.from(new Set(events.filter(event => !course || event.courseName === course).map(event => event.cohortName))).map(name => <option key={name}>{name}</option>)}</select></label><div className="ml-auto flex gap-1" role="group" aria-label="Vista del calendario"><Button variant={view === "month" ? "default" : "outline"} aria-pressed={view === "month"} onClick={() => setView("month")}>Mes</Button><Button variant={view === "agenda" ? "default" : "outline"} aria-pressed={view === "agenda"} onClick={() => setView("agenda")}>Agenda</Button></div></div>
+      <DataSection {...resource} label="calendario académico">
+      {view === "agenda" && <section className="dashboard-panel p-5"><div className="mb-4 flex items-center justify-between"><Button variant="ghost" aria-label="Mes anterior" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button><h2>{MONTH_NAMES[month]} {year}</h2><Button variant="ghost" aria-label="Mes siguiente" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button></div><ol className="divide-y divide-border">{monthEvents.map(event => <li key={event.id} className="flex items-start gap-4 py-4"><time className="w-16 shrink-0 text-sm font-semibold text-primary">{new Date(event.date).toLocaleDateString("es-PE", { day: "numeric", month: "short" })}</time><div><p className="font-semibold">{event.title}</p><p className="text-sm text-muted-foreground">{event.courseName} · {event.cohortName}</p><p className="mt-1 text-xs text-muted-foreground">{event.type === "class" ? "Clase" : "Evaluación"} · {new Date(event.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p></div></li>)}</ol>{!monthEvents.length && <p className="py-12 text-center text-sm text-muted-foreground">Sin eventos para este mes y estos filtros.</p>}</section>}
+      <div hidden={view !== "month"}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar Grid */}
         <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card p-6">
           <div className="flex items-center justify-between mb-6">
-            <button onClick={prevMonth} className="p-2 hover:bg-muted rounded-lg transition-colors">
+            <button aria-label="Mes anterior" onClick={prevMonth} className="p-2 hover:bg-muted rounded-lg transition-colors">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <h3 className="text-lg font-semibold">
               {MONTH_NAMES[month]} {year}
             </h3>
-            <button onClick={nextMonth} className="p-2 hover:bg-muted rounded-lg transition-colors">
+            <button aria-label="Mes siguiente" onClick={nextMonth} className="p-2 hover:bg-muted rounded-lg transition-colors">
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
@@ -128,7 +148,7 @@ export default function CalendarPage() {
             ))}
             {calendarDays.map((day, i) => {
               if (!day) return <div key={`empty-${i}`} />;
-              const dayEvents = getEventsForDay(day);
+              const dayEvents = getEventsForDay(day).filter(matches);
               const hasClass = dayEvents.some((e) => e.type === "class");
               const hasEval = dayEvents.some((e) => e.type === "evaluation");
               const selected = selectedDay === day;
@@ -136,6 +156,8 @@ export default function CalendarPage() {
               return (
                 <button
                   key={day}
+                  aria-label={`${day} de ${MONTH_NAMES[month]}, ${dayEvents.length} eventos`}
+                  aria-pressed={selected}
                   onClick={() => setSelectedDay(day)}
                   className={`relative p-2 rounded-lg text-sm transition-all min-h-[52px] flex flex-col items-center ${
                     selected
@@ -197,9 +219,13 @@ export default function CalendarPage() {
                     )}
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{ev.title}</p>
-                      <p className="text-xs text-muted-foreground">{ev.courseName}</p>
+                      <p className="text-xs text-muted-foreground">{ev.courseName} · {ev.cohortName}</p>
+                      <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                        <Clock3 className="h-3 w-3" />
+                        {new Date(ev.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                       {ev.weight && (
-                        <span className="text-xs text-amber-600">Peso: {ev.weight}%</span>
+                        <span className="ml-2 text-xs text-amber-600">Peso: {ev.weight}%</span>
                       )}
                       {ev.meetLink && (
                         <a
@@ -219,6 +245,8 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+      </div>
+      </DataSection>
     </div>
   );
 }

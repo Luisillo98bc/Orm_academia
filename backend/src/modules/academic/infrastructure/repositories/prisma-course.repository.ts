@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service';
 import { ICourseRepository } from '../../domain/repositories/course.repository.interface';
 import {
@@ -15,6 +16,13 @@ export class PrismaCourseRepository implements ICourseRepository {
       where: { deletedAt: null },
     });
     return courses.map((c) => this.toDomain(c));
+  }
+
+  async findPublic(): Promise<CourseEntity[]> {
+    const courses = await this.prisma.course.findMany({
+      where: { deletedAt: null, isPublished: true },
+    });
+    return courses.map((course) => this.toDomain(course));
   }
 
   async findById(id: string): Promise<CourseEntity | null> {
@@ -65,6 +73,7 @@ export class PrismaCourseRepository implements ICourseRepository {
       level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
       durationHours?: number;
       imageUrl?: string | null;
+      isPublished?: boolean;
     },
   ): Promise<CourseEntity> {
     const course = await this.prisma.course.update({
@@ -97,7 +106,9 @@ export class PrismaCourseRepository implements ICourseRepository {
     return this.toDomain(course);
   }
 
-  private toDomain(raw: any): CourseEntity {
+  private toDomain(
+    raw: Prisma.CourseGetPayload<Prisma.CourseDefaultArgs>,
+  ): CourseEntity {
     return new CourseEntity({
       id: raw.id,
       code: raw.code,

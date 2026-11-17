@@ -16,6 +16,8 @@ import {
   Reply,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { useConfirm } from "@/components/confirm-provider";
 
 interface ForumMessage {
   id: string;
@@ -40,6 +42,7 @@ export default function ForumDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const confirmAction = useConfirm();
   const forumId = params.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -52,9 +55,11 @@ export default function ForumDetailPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const shouldScrollToBottomRef = useRef(false);
 
   useEffect(() => {
-    // Auto-scroll to bottom on new messages
+    if (!shouldScrollToBottomRef.current) return;
+    shouldScrollToBottomRef.current = false;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -97,6 +102,7 @@ export default function ForumDetailPage() {
       });
       setNewMessage("");
       setReplyingTo(null);
+      shouldScrollToBottomRef.current = true;
       await loadForumData();
     } catch (err) {
       console.error(err);
@@ -106,7 +112,7 @@ export default function ForumDetailPage() {
   };
 
   const handleDelete = async (messageId: string) => {
-    if (!confirm("¿Seguro que deseas eliminar este mensaje?")) return;
+    if (!(await confirmAction({ title: "Eliminar mensaje", description: "El mensaje se eliminará del foro y no podrá recuperarse.", confirmLabel: "Eliminar mensaje" }))) return;
     setDeletingId(messageId);
     try {
       await fetchApi(`/communication/forums/messages/${messageId}`, {
@@ -115,7 +121,7 @@ export default function ForumDetailPage() {
       await loadForumData();
     } catch (err) {
       console.error(err);
-      alert("No se pudo eliminar el mensaje");
+      toast.error("No se pudo eliminar el mensaje");
     } finally {
       setDeletingId(null);
     }
@@ -370,9 +376,9 @@ export default function ForumDetailPage() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if (e.key === "Enter" && (!e.shiftKey || e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
-                    handleSend(e);
+                    void handleSend(e);
                   }
                 }}
                 rows={1}
@@ -384,6 +390,9 @@ export default function ForumDetailPage() {
                   target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
                 }}
               />
+              <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+                Presiona <kbd className="font-mono">Enter</kbd> o <kbd className="font-mono">Ctrl + Enter</kbd> para publicar · <kbd className="font-mono">Shift + Enter</kbd> para nueva línea
+              </p>
             </div>
             <Button
               type="submit"

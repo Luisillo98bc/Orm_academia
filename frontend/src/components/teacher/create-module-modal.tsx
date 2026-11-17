@@ -1,3 +1,4 @@
+import { Modal } from "@/components/ui/modal";
 import { useState } from "react";
 import { fetchApi, getErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ export function CreateModuleModal({ isOpen, onClose, onSuccess, cohortId }: { is
     e.preventDefault();
     setError("");
     setLoading(true);
-    
+
     try {
       await fetchApi(`/academic/cohorts/${cohortId}/modules`, {
         method: "POST",
@@ -32,9 +33,10 @@ export function CreateModuleModal({ isOpen, onClose, onSuccess, cohortId }: { is
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <Modal title="Crear módulo" onClose={() => { if (!loading) onClose(); }}>
+
       <Card className="w-full max-w-md glass relative">
-        <button onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+        <button aria-label="Cerrar ventana" onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
           <X className="h-5 w-5" />
         </button>
         <CardHeader>
@@ -43,20 +45,20 @@ export function CreateModuleModal({ isOpen, onClose, onSuccess, cohortId }: { is
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm">Título de la Semana</label>
-              <Input required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="Ej. Semana 1: Introducción" />
+              <label htmlFor="teacher-create-module-modal-0" className="text-sm">Título de la Semana</label>
+              <Input id="teacher-create-module-modal-0" required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="Ej. Semana 1: Introducción" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm">Descripción (Opcional)</label>
-              <Input value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+              <label htmlFor="teacher-create-module-modal-1" className="text-sm">Descripción (Opcional)</label>
+              <Input id="teacher-create-module-modal-1" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm">Orden</label>
-              <Input type="number" min={1} required value={formData.order} onChange={(e) => setFormData({...formData, order: Number(e.target.value)})} />
+              <label htmlFor="teacher-create-module-modal-2" className="text-sm">Orden</label>
+              <Input id="teacher-create-module-modal-2" type="number" min={1} required value={formData.order} onChange={(e) => setFormData({...formData, order: Number(e.target.value)})} />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
             <div className="pt-4 flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
               <Button type="submit" disabled={loading}>
@@ -67,6 +69,6 @@ export function CreateModuleModal({ isOpen, onClose, onSuccess, cohortId }: { is
           </form>
         </CardContent>
       </Card>
-    </div>
+    </Modal>
   );
 }

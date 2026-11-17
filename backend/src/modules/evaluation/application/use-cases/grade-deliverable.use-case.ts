@@ -110,7 +110,7 @@ export class GradeDeliverableUseCase {
       grade = await this.gradeRepo.update(existingGrade.id, {
         score,
         feedback,
-        status: GradeStatusEnum.DRAFT,
+        status: GradeStatusEnum.PUBLISHED,
       });
       isNewGrade = false;
     } else {
@@ -127,7 +127,7 @@ export class GradeDeliverableUseCase {
         graderId,
         score,
         feedback,
-        status: GradeStatusEnum.DRAFT,
+        status: GradeStatusEnum.PUBLISHED,
       });
       isNewGrade = true;
     }

@@ -8,6 +8,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { ACCESS_COOKIE_NAME, readCookie } from '../auth-cookies.service';
 import type { Request } from 'express';
+import { RefreshSessionService } from '../refresh-session.service';
 
 /**
  * Payload decodificado del JWT.
@@ -17,6 +18,7 @@ interface JwtPayload {
   email: string;
   roles: string[];
   permissions: string[];
+  sid?: string;
 }
 
 /**
@@ -24,13 +26,27 @@ interface JwtPayload {
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly sessions: RefreshSessionService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req: Request) => {
+          const queryToken = req?.query?.token;
+          if (
+            typeof queryToken === 'string' &&
+            queryToken.trim() &&
+            req.path?.endsWith('/storage/download')
+          ) {
+            return queryToken.trim();
+          }
+          return null;
+        },
         (req: Request) => {
           return readCookie(req.headers.cookie, ACCESS_COOKIE_NAME);
         },
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>(
@@ -49,11 +65,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token inválido');
     }
 
-    return {
-      id: payload.sub,
-      email: payload.email,
-      roles: payload.roles,
-      permissions: payload.permissions,
-    };
+    return this.sessions.validateAccessClaims(payload);
   }
 }

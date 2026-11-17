@@ -56,19 +56,40 @@ export class AuthCookiesService {
       this.config.get('JWT_EXPIRES_IN', '15m'),
       15 * 60_000,
     );
+    const refreshTtlDays = Number(
+      this.config.get('REFRESH_TOKEN_TTL_DAYS', 30),
+    );
     this.refreshMaxAge =
-      Number(this.config.get('REFRESH_TOKEN_TTL_DAYS', 30)) * 86_400_000;
+      Number.isFinite(refreshTtlDays) && refreshTtlDays > 0
+        ? refreshTtlDays * 86_400_000
+        : 30 * 86_400_000;
   }
 
   getAccessToken(request: Request): string | null {
-    return readCookie(request.headers.cookie, ACCESS_COOKIE_NAME);
+    const authHeader = request.headers?.authorization;
+    if (
+      typeof authHeader === 'string' &&
+      authHeader.toLowerCase().startsWith('bearer ')
+    ) {
+      const bearerToken = authHeader.slice(7).trim();
+      if (bearerToken) return bearerToken;
+    }
+    return readCookie(request.headers?.cookie, ACCESS_COOKIE_NAME);
   }
 
   getRefreshToken(request: Request): string | null {
-    return readCookie(request.headers.cookie, REFRESH_COOKIE_NAME);
+    const tabRefresh = request.headers?.['x-tab-refresh-token'];
+    if (typeof tabRefresh === 'string' && tabRefresh.trim()) {
+      return tabRefresh.trim();
+    }
+    return readCookie(request.headers?.cookie, REFRESH_COOKIE_NAME);
   }
 
   set(response: Response, accessToken: string, refreshToken: string): void {
+    if (typeof response.setHeader === 'function') {
+      response.setHeader('X-Tab-Access-Token', accessToken);
+      response.setHeader('X-Tab-Refresh-Token', refreshToken);
+    }
     response.cookie(ACCESS_COOKIE_NAME, accessToken, {
       ...this.baseOptions(),
       path: '/',
