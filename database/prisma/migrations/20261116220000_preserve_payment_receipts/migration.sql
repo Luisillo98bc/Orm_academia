@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Preserve the price agreed before monthly plans existed. Never infer a debt
 -- for an existing enrollment from the current duration of its cohort.
 UPDATE payments p
@@ -41,4 +43,6 @@ AND NOT EXISTS (
   WHERE h.payment_id = p.id AND h.installment_number = p.installment_number
 );
 ALTER TABLE users ALTER COLUMN two_factor_secret TYPE VARCHAR(255);
+
+COMMIT;
 

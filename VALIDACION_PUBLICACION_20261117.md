@@ -25,6 +25,8 @@ contenedores existentes conservan su configuración hasta recrearlos.
   de métodos, analítica y CSV consultan esos cobros y sus fechas. Los filtros
   diarios financieros usan la zona horaria de Lima.
   Los gráficos conservan seis meses distintos incluso al cerrar un mes de 31 días.
+  La corrección de matrículas antiguas, la vista y la ampliación de 2FA se
+  aplican en una única transacción; la versión final se probó desde una base vacía.
 - Comprobantes: se autoriza el pago antes de guardar el archivo; las cargas
   fallidas se retiran y los comprobantes reemplazados se limpian después de
   guardar su sustituto. El historial conserva el acceso autorizado a vouchers.
